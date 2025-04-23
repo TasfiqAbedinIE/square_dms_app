@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:square_dms_trial/subPages/hourlyReportPage.dart';
 import 'package:square_dms_trial/subPages/HourlyDataEntryPage.dart';
 import 'package:square_dms_trial/globals.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HourlyProductionScreen extends StatefulWidget {
   const HourlyProductionScreen({super.key});
@@ -16,18 +17,29 @@ class _HourlyProductionScreenState extends State<HourlyProductionScreen> {
   // These always contain 2 items to avoid index or length issues
   late final List<Widget> _screens;
   late final List<String> _titles;
+  // String userID = '';
+  String authority = '';
 
   @override
   void initState() {
     super.initState();
+    loadUserInfo();
 
     _screens = [const DashboardScreen(), const HourlyDataEntryScreen()];
 
     _titles = ["Hourly Report", "Production Entry"];
   }
 
+  Future<void> loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      // userID = prefs.getString('userID') ?? '';
+      authority = prefs.getString('authority') ?? '';
+    });
+  }
+
   void _onItemTapped(int index) {
-    if (index == 1 && userAuthority == 'GUEST') {
+    if (index == 1 && authority == 'GUEST') {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Access Denied")));

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:square_dms_trial/pages/homeScreen.dart';
 import 'package:square_dms_trial/globals.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -38,6 +39,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (response != null) {
       userAuthority = response["authority"] as String;
       userID = id;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('userID', id);
+      await prefs.setString('authority', userAuthority!);
+
+      isLoggedIn = true;
 
       // Login successful
       setState(() => error = "");

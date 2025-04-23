@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:square_dms_trial/pages/hourlyProductionScreen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/pages/homeScreen.dart';
 import 'package:square_dms_trial/pages/adminScreen.dart';
 import 'package:square_dms_trial/pages/ieScreen.dart';
-import 'package:square_dms_trial/service/connectivity_service.dart';
 import 'package:square_dms_trial/pages/skillMatrixScreen.dart';
-
-// import '../database/CapacityRecordDatabase.dart';
-// import '../service/supabase_service.dart';
-// import 'database/sales_order_database.dart';
-// import 'models/sales_order_model.dart';
-
-//Only for desktop or test purpose
-// import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:square_dms_trial/loginScreen.dart';
+import 'package:square_dms_trial/service/connectivity_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const supabaseUrl = 'https://xwmfquxefxkswpslzxhq.supabase.co';
 const supabaseAnonKey =
@@ -25,15 +18,19 @@ final connectivityService = ConnectivityService();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  // syncSalesOrdersFromSupabase();
 
-  runApp(MyApp());
+  final prefs = await SharedPreferences.getInstance();
+  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+  final userID = prefs.getString('userID');
+  final userAuthority = prefs.getString('authority');
+
+  runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
 class MyApp extends StatelessWidget {
-  MyApp({super.key});
+  final bool isLoggedIn;
+  MyApp({super.key, required this.isLoggedIn});
 
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
@@ -43,7 +40,10 @@ class MyApp extends StatelessWidget {
     return StreamBuilder<bool>(
       stream: connectivityService.connectivityStream,
       builder: (context, snapshot) {
-        final isConnected = snapshot.data ?? true;
+        final isConnected =
+            snapshot.connectionState == ConnectionState.active
+                ? snapshot.data ?? true
+                : true;
 
         if (!isConnected) {
           Future.microtask(() {
@@ -59,17 +59,13 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'SQUARE DMS',
           theme: ThemeData(fontFamily: GoogleFonts.lexend().fontFamily),
-          // initialRoute: '/home',
           scaffoldMessengerKey: _messengerKey,
-          initialRoute: '/login',
+          initialRoute: isLoggedIn ? '/home' : '/login',
           routes: {
-            // Side Bar Routing
             '/home': (context) => const HomeScreen(),
             '/IE': (context) => IEScreen(),
             '/admin': (context) => AdminPage(),
             '/login': (context) => const LoginScreen(),
-
-            // Sub Screen Routing
             '/production': (context) => const HourlyProductionScreen(),
             '/skill_matrix': (context) => const SkillMatrixScreen(),
           },
