@@ -39,6 +39,7 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
     setState(() {
       _records = fetchedRecords;
     });
+    // await CapacityRecordDatabase.instance.deleteDatabaseFile();
   }
 
   Future<void> syncSalesOrdersFromSupabase() async {
@@ -100,6 +101,165 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
+  }
+
+  void editRecord(CapacityRecord record) {
+    final lineController = TextEditingController(
+      text: record.lineNumber.toString(),
+    );
+    final layoutTargetController = TextEditingController(
+      text: record.layoutTarget.toString(),
+    );
+    final buyerController = TextEditingController(text: record.buyer);
+    final salesDocController = TextEditingController(
+      text: record.salesDocument,
+    );
+    final styleController = TextEditingController(text: record.style);
+    final itemController = TextEditingController(text: record.item);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 30,
+            left: 16,
+            right: 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Edit Capacity Info",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: lineController,
+                  decoration: const InputDecoration(labelText: "Line Number"),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: buyerController,
+                  decoration: const InputDecoration(labelText: "Buyer Name"),
+                ),
+                TextField(
+                  controller: salesDocController,
+                  decoration: const InputDecoration(
+                    labelText: "Sales Document",
+                  ),
+                ),
+                TextField(
+                  controller: styleController,
+                  decoration: const InputDecoration(labelText: "Style"),
+                ),
+                TextField(
+                  controller: itemController,
+                  decoration: const InputDecoration(labelText: "Item"),
+                ),
+                TextField(
+                  controller: layoutTargetController,
+                  decoration: const InputDecoration(labelText: "Hourly Target"),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () async {
+                    final updatedRecord = CapacityRecord(
+                      referenceNumber: record.referenceNumber,
+                      lineNumber: int.parse(lineController.text),
+                      buyer: buyerController.text,
+                      salesDocument: salesDocController.text,
+                      style: styleController.text,
+                      item: itemController.text,
+                      layoutTarget: int.parse(layoutTargetController.text),
+                      date: record.date,
+                      deptid: record.deptid,
+                    );
+
+                    final db = await CapacityRecordDatabase.instance.database;
+                    await db.update(
+                      'capacity_records',
+                      updatedRecord.toMap(),
+                      where: 'referenceNumber = ?',
+                      whereArgs: [record.referenceNumber],
+                    );
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      loadRecords();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Record updated successfully!'),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text("Update"),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void confirmDeleteRecord(CapacityRecord record) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Delete Record"),
+          content: const Text(
+            "Are you sure you want to delete this record? This will remove related data too.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () async {
+                await deleteRecord(record.referenceNumber);
+                if (mounted) {
+                  Navigator.pop(context);
+                  loadRecords();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Record deleted successfully!'),
+                    ),
+                  );
+                }
+              },
+              child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> deleteRecord(String referenceNumber) async {
+    final db = await CapacityRecordDatabase.instance.database;
+
+    // Delete from skillMatrixRecords
+    await db.delete(
+      'skillMatrixRecords',
+      where: 'referenceNumber = ?',
+      whereArgs: [referenceNumber],
+    );
+
+    // Delete from capacity_records
+    await db.delete(
+      'capacity_records',
+      where: 'referenceNumber = ?',
+      whereArgs: [referenceNumber],
+    );
   }
 
   void showAddBottomSheet() async {
@@ -267,10 +427,10 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                           final newRecord = CapacityRecord(
                             referenceNumber: 'REF${Random().nextInt(999999)}',
                             lineNumber: int.parse(lineController.text),
-                            buyer: selectedBuyer!,
-                            salesDocument: selectedSalesDoc!,
-                            style: selectedStyle!,
-                            item: selectedItem!,
+                            buyer: selectedBuyer ?? '',
+                            salesDocument: selectedSalesDoc ?? '',
+                            style: selectedStyle ?? '',
+                            item: selectedItem ?? '',
                             layoutTarget: int.parse(
                               hourlyTargetController.text,
                             ),
@@ -279,7 +439,7 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                                     .toIso8601String()
                                     .split("T")
                                     .first,
-                            deptid: userID!,
+                            deptid: userID ?? '',
                           );
 
                           await CapacityRecordDatabase.instance.insertRecord(
@@ -332,28 +492,85 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                 itemCount: _records.length,
                 itemBuilder: (context, index) {
                   final record = _records[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+
+                  return Dismissible(
+                    key: Key(record.referenceNumber),
+                    background: Container(
+                      color: Colors.green,
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 20),
+                      child: const Icon(Icons.edit, color: Colors.white),
                     ),
-                    child: ListTile(
-                      title: Text("Line ${record.lineNumber}"),
-                      subtitle: Text(
-                        "Style: ${record.style} \nDate: ${record.date}",
-                      ),
-                      isThreeLine: true,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) => SkillMatrixOperatorPage(record: record),
-                          ),
-                        ).then((_) {
+                    secondaryBackground: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    confirmDismiss: (direction) async {
+                      if (direction == DismissDirection.startToEnd) {
+                        // Swipe right (EDIT)
+                        editRecord(record);
+                        return false; // Don't dismiss
+                      } else if (direction == DismissDirection.endToStart) {
+                        // Swipe left (DELETE)
+                        final shouldDelete = await showDialog<bool>(
+                          context: context,
+                          builder: (context) {
+                            return AlertDialog(
+                              title: const Text("Delete Record"),
+                              content: const Text(
+                                "Are you sure you want to delete this record?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(context).pop(false),
+                                  child: const Text("Cancel"),
+                                ),
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(context).pop(true),
+                                  child: const Text(
+                                    "Delete",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        if (shouldDelete ?? false) {
+                          await deleteRecord(record.referenceNumber);
                           loadRecords();
-                        });
-                      },
+                          return true; // Dismiss after delete
+                        }
+                        return false;
+                      }
+                      return false;
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: ListTile(
+                        title: Text("Line ${record.lineNumber}"),
+                        subtitle: Text(
+                          "Style: ${record.style}\nDate: ${record.date}",
+                        ),
+                        isThreeLine: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (_) =>
+                                      SkillMatrixOperatorPage(record: record),
+                            ),
+                          ).then((_) => loadRecords());
+                        },
+                      ),
                     ),
                   );
                 },

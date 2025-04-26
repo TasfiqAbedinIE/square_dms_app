@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:square_dms_trial/database/sewing_process_database.dart';
 import 'package:square_dms_trial/models/sewing_process_model.dart';
+import 'package:square_dms_trial/database/capacity_record_database.dart';
+import 'package:square_dms_trial/models/capacity_record_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SkillMatrixTimeStudyPage extends StatefulWidget {
-  const SkillMatrixTimeStudyPage({super.key});
+  final CapacityRecord record;
+  const SkillMatrixTimeStudyPage({super.key, required this.record});
 
   @override
   State<SkillMatrixTimeStudyPage> createState() =>
@@ -39,7 +44,6 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
   Future<void> loadProcessData() async {
     final db = await SewingProcessDatabase.instance.database;
     final processes = await SewingProcessDatabase.instance.fetchProcesses(db);
-
     setState(() {
       allProcesses = processes;
       processNames = processes.map((e) => e.processName).toSet().toList();
@@ -94,6 +98,76 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
   int get capacityPerHour {
     if (averageLapTime == 0) return 0;
     return (3600 / averageLapTime).floor();
+  }
+
+  // ---------------------
+  Future<void> saveRecord() async {
+    if (operatorController.text.isEmpty ||
+        selectedProcess == null ||
+        selectedMachine == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
+      return;
+    }
+
+    final processName = "$selectedProcess + $selectedSubProcess";
+
+    final operatorIdTrimmed = operatorController.text.trim();
+
+    final db = await CapacityRecordDatabase.instance.database;
+
+    // 🚨 First check if record already exists
+    final existing = await db.query(
+      'skillMatrixRecords',
+      where: 'referenceNumber = ? AND operatorID = ?',
+      whereArgs: [widget.record.referenceNumber, operatorIdTrimmed],
+    );
+
+    if (existing.isNotEmpty) {
+      // If already exists, show warning and stop
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "This Operator ID is already recorded for this reference.",
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final isuserID = prefs.getString('userID') ?? '';
+
+    // If not exists, save normally
+    final newSkillRecord = {
+      'referenceNumber': widget.record.referenceNumber,
+      'lineNumber': widget.record.lineNumber,
+      'buyer': widget.record.buyer,
+      'salesDocument': widget.record.salesDocument,
+      'style': widget.record.style,
+      'item': widget.record.item,
+      'layoutTarget': widget.record.layoutTarget,
+      'date': widget.record.date,
+      'operatorID': operatorController.text.trim(),
+      'processName': processName,
+      'machine': selectedMachine,
+      'form': selectedForm ?? '',
+      'lapCount': lapTimestamps.length,
+      'avgCycle': averageLapTime.toStringAsFixed(2),
+      'capacityPH': capacityPerHour,
+      'deptid': isuserID,
+    };
+
+    await db.insert('skillMatrixRecords', newSkillRecord);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Record saved successfully")),
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -321,7 +395,7 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          // Save logic here
+                          saveRecord();
                         },
                         child: const Text("Save"),
                       ),
@@ -336,3 +410,244 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
     );
   }
 }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       appBar: AppBar(title: const Text("Time Study")),
+//       body: Padding(
+//         padding: const EdgeInsets.all(16.0),
+//         child: Column(
+//           children: [
+//             TextField(
+//               controller: operatorController,
+//               decoration: const InputDecoration(labelText: "Operator ID"),
+//             ),
+//             const SizedBox(height: 16),
+
+//             /// Process + Machine Row
+//             Row(
+//               children: [
+//                 Expanded(
+//                   flex: 2,
+//                   child: DropdownSearch<String>(
+//                     items: (filter, infiniteScrollProps) => processNames,
+//                     selectedItem: selectedProcess,
+//                     popupProps: const PopupProps.menu(showSearchBox: true),
+//                     decoratorProps: const DropDownDecoratorProps(
+//                       decoration: InputDecoration(labelText: "Process"),
+//                     ),
+//                     onChanged: (value) {
+//                       setState(() {
+//                         selectedProcess = value;
+//                         machines =
+//                             allProcesses
+//                                 .where((e) => e.processName == value)
+//                                 .map((e) => e.machine)
+//                                 .toSet()
+//                                 .toList();
+//                         selectedMachine = null;
+//                       });
+//                     },
+//                   ),
+//                 ),
+//                 const SizedBox(width: 8),
+//                 Expanded(
+//                   flex: 1,
+//                   child: DropdownSearch<String>(
+//                     items: (filter, infiniteScrollProps) => machines,
+//                     selectedItem: selectedMachine,
+//                     popupProps: const PopupProps.menu(showSearchBox: true),
+//                     decoratorProps: const DropDownDecoratorProps(
+//                       decoration: InputDecoration(labelText: "Machine"),
+//                     ),
+//                     onChanged:
+//                         (value) => setState(() => selectedMachine = value),
+//                   ),
+//                 ),
+//               ],
+//             ),
+
+//             const SizedBox(height: 12),
+
+//             /// SubProcess + Form Row
+//             Row(
+//               children: [
+//                 Expanded(
+//                   flex: 2,
+//                   child: DropdownSearch<String>(
+//                     items: (filter, infiniteScrollProps) => processNames,
+//                     selectedItem: selectedSubProcess,
+//                     popupProps: const PopupProps.menu(showSearchBox: true),
+//                     decoratorProps: const DropDownDecoratorProps(
+//                       decoration: InputDecoration(labelText: "SubProcess"),
+//                     ),
+//                     onChanged: (value) {
+//                       setState(() {
+//                         selectedSubProcess = value;
+//                         forms =
+//                             allProcesses
+//                                 .where((e) => e.processName == value)
+//                                 .map((e) => e.form)
+//                                 .toSet()
+//                                 .toList();
+//                         selectedForm = null;
+//                       });
+//                     },
+//                   ),
+//                 ),
+//                 const SizedBox(width: 8),
+//                 Expanded(
+//                   flex: 1,
+//                   child: DropdownSearch<String>(
+//                     items: (filter, infiniteScrollProps) => forms,
+//                     selectedItem: selectedForm,
+//                     popupProps: const PopupProps.menu(showSearchBox: true),
+//                     decoratorProps: const DropDownDecoratorProps(
+//                       decoration: InputDecoration(labelText: "Form"),
+//                     ),
+//                     onChanged: (value) => setState(() => selectedForm = value),
+//                   ),
+//                 ),
+//               ],
+//             ),
+
+//             const SizedBox(height: 30),
+//             Center(
+//               child: Text(
+//                 elapsedTime,
+//                 style: const TextStyle(
+//                   fontSize: 32,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//             ),
+//             const SizedBox(height: 16),
+
+//             Expanded(
+//               child: ListView.builder(
+//                 itemCount: lapTimestamps.length,
+//                 itemBuilder: (context, index) {
+//                   final lapTime =
+//                       index == 0
+//                           ? lapTimestamps[0] / 1000.0
+//                           : (lapTimestamps[index] - lapTimestamps[index - 1]) /
+//                               1000.0;
+//                   final isLast = index == lapTimestamps.length - 1;
+
+//                   return Card(
+//                     elevation: 4,
+//                     shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(12),
+//                     ),
+//                     margin: const EdgeInsets.symmetric(
+//                       horizontal: 8,
+//                       vertical: 6,
+//                     ),
+//                     child: ListTile(
+//                       contentPadding: const EdgeInsets.symmetric(
+//                         horizontal: 16,
+//                         vertical: 8,
+//                       ),
+//                       leading: CircleAvatar(
+//                         backgroundColor: Colors.deepPurple,
+//                         child: Text(
+//                           '${index + 1}',
+//                           style: const TextStyle(color: Colors.white),
+//                         ),
+//                       ),
+//                       title: Text(
+//                         "Lap ${index + 1}",
+//                         style: const TextStyle(
+//                           fontWeight: FontWeight.bold,
+//                           fontSize: 16,
+//                         ),
+//                       ),
+//                       subtitle: Text(
+//                         "${lapTime.toStringAsFixed(2)} seconds",
+//                         style: const TextStyle(color: Colors.grey),
+//                       ),
+//                       trailing:
+//                           isLast
+//                               ? IconButton(
+//                                 icon: const Icon(
+//                                   Icons.delete,
+//                                   color: Colors.red,
+//                                 ),
+//                                 onPressed: () {
+//                                   setState(() {
+//                                     lapTimestamps.removeAt(index);
+//                                   });
+//                                 },
+//                               )
+//                               : null,
+//                     ),
+//                   );
+//                 },
+//               ),
+//             ),
+
+//             const SizedBox(height: 16),
+//             Container(
+//               padding: const EdgeInsets.all(12),
+//               // color: Colors.white,
+//               child: Column(
+//                 children: [
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.spaceAround,
+//                     children: [
+//                       ElevatedButton(
+//                         onPressed: startStopwatch,
+//                         child: const Text("Start"),
+//                       ),
+//                       ElevatedButton(
+//                         onPressed: recordLap,
+//                         child: const Text("Lap"),
+//                       ),
+//                       ElevatedButton(
+//                         onPressed: stopStopwatch,
+//                         child: const Text("End"),
+//                       ),
+//                       ElevatedButton(
+//                         onPressed: resetStopwatch,
+//                         style: ElevatedButton.styleFrom(
+//                           backgroundColor: Colors.red,
+//                         ),
+//                         child: const Text("Reset"),
+//                       ),
+//                     ],
+//                   ),
+//                   const Divider(),
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                     children: [
+//                       Text("Laps: ${lapTimestamps.length}"),
+//                       Text("Avg: ${averageLapTime.toStringAsFixed(2)} sec"),
+//                       Text("Cap/hr: $capacityPerHour"),
+//                     ],
+//                   ),
+//                   const SizedBox(height: 16),
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+//                     children: [
+//                       OutlinedButton(
+//                         onPressed: () => Navigator.pop(context),
+//                         child: const Text("Cancel"),
+//                       ),
+//                       ElevatedButton(
+//                         onPressed: () {
+//                           // Save logic here
+//                         },
+//                         child: const Text("Save"),
+//                       ),
+//                     ],
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }

@@ -38,6 +38,20 @@ class CapacityRecord {
     };
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'referenceNumber': referenceNumber,
+      'lineNumber': lineNumber,
+      'salesDocument': salesDocument,
+      'buyer': buyer,
+      'style': style,
+      'item': item,
+      'layoutTarget': layoutTarget,
+      'date': date,
+      'deptid': deptid,
+    };
+  }
+
   static CapacityRecord fromMap(Map<String, dynamic> map) {
     return CapacityRecord(
       // id: map['id'],

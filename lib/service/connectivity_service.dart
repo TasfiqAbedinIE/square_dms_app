@@ -2,24 +2,20 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 class ConnectivityService {
+  final _connectivity = Connectivity();
   final _controller = StreamController<bool>.broadcast();
 
   ConnectivityService() {
-    Connectivity().onConnectivityChanged.listen((result) {
-      _controller.sink.add(result != ConnectivityResult.none);
+    _connectivity.onConnectivityChanged.listen((results) {
+      _controller.sink.add(_checkStatus(results));
     });
-
-    _checkInitialConnection();
   }
 
-  void _checkInitialConnection() async {
-    final result = await Connectivity().checkConnectivity();
-    _controller.sink.add(result != ConnectivityResult.none);
+  bool _checkStatus(List<ConnectivityResult> results) {
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   Stream<bool> get connectivityStream => _controller.stream;
 
-  void dispose() {
-    _controller.close();
-  }
+  void dispose() => _controller.close();
 }

@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => error = "");
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomeScreen()),
+        MaterialPageRoute(builder: (_) => DashboardScreen()),
       );
     } else {
       setState(() => error = "Invalid ID or password.");

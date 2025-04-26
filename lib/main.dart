@@ -22,54 +22,64 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-  final userID = prefs.getString('userID');
-  final userAuthority = prefs.getString('authority');
 
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool isLoggedIn;
-  MyApp({super.key, required this.isLoggedIn});
+  const MyApp({super.key, required this.isLoggedIn});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   final GlobalKey<ScaffoldMessengerState> _messengerKey =
       GlobalKey<ScaffoldMessengerState>();
 
+  bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    connectivityService.connectivityStream.listen((isConnected) {
+      if (!isConnected && !_isOffline) {
+        _isOffline = true;
+        _messengerKey.currentState?.showMaterialBanner(
+          MaterialBanner(
+            backgroundColor: Colors.red.shade400,
+            content: const Text(
+              'No internet connection',
+              style: TextStyle(color: Colors.white),
+            ),
+            actions: const [
+              SizedBox(), // just to avoid needing action buttons
+            ],
+          ),
+        );
+      } else if (isConnected && _isOffline) {
+        _isOffline = false;
+        _messengerKey.currentState?.clearMaterialBanners();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
-      stream: connectivityService.connectivityStream,
-      builder: (context, snapshot) {
-        final isConnected =
-            snapshot.connectionState == ConnectionState.active
-                ? snapshot.data ?? true
-                : true;
-
-        if (!isConnected) {
-          Future.microtask(() {
-            _messengerKey.currentState?.showSnackBar(
-              const SnackBar(
-                content: Text('No Internet Connection!'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          });
-        }
-
-        return MaterialApp(
-          title: 'SQUARE DMS',
-          theme: ThemeData(fontFamily: GoogleFonts.lexend().fontFamily),
-          scaffoldMessengerKey: _messengerKey,
-          initialRoute: isLoggedIn ? '/home' : '/login',
-          routes: {
-            '/home': (context) => const HomeScreen(),
-            '/IE': (context) => IEScreen(),
-            '/admin': (context) => AdminPage(),
-            '/login': (context) => const LoginScreen(),
-            '/production': (context) => const HourlyProductionScreen(),
-            '/skill_matrix': (context) => const SkillMatrixScreen(),
-          },
-        );
+    return MaterialApp(
+      title: 'SQUARE DMS',
+      theme: ThemeData(fontFamily: GoogleFonts.lexend().fontFamily),
+      scaffoldMessengerKey: _messengerKey,
+      initialRoute: widget.isLoggedIn ? '/home' : '/login',
+      routes: {
+        '/home': (context) => DashboardScreen(),
+        '/IE': (context) => IEScreen(),
+        '/admin': (context) => AdminPage(),
+        '/login': (context) => const LoginScreen(),
+        '/production': (context) => const HourlyProductionScreen(),
+        '/skill_matrix': (context) => const SkillMatrixScreen(),
       },
     );
   }

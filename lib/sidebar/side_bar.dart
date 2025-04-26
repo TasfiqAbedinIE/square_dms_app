@@ -41,9 +41,9 @@ class _AppSideBarState extends State<AppSideBar> {
       child: Column(
         children: [
           Container(
-            height: 200,
+            height: 155,
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 46, 16, 5),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -58,9 +58,9 @@ class _AppSideBarState extends State<AppSideBar> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const CircleAvatar(
-                  radius: 35,
+                  radius: 20,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: Colors.deepPurple),
+                  child: Icon(Icons.person, size: 20, color: Colors.deepPurple),
                 ),
                 const SizedBox(height: 12),
                 Text(
