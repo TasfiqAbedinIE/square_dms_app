@@ -29,7 +29,7 @@ class IEScreen extends StatelessWidget {
               Icons.local_activity,
               "/skill_matrix",
             ),
-            _buildCard(context, "SMV", Icons.timer, "/smv"),
+            _buildCard(context, "Non Productive Time", Icons.timelapse, "/smv"),
             _buildCard(context, "Target", Icons.track_changes, "/target"),
             _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
           ],
@@ -52,19 +52,24 @@ class IEScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 4,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 48, color: Colors.blue),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              // mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 48, color: Colors.blue),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

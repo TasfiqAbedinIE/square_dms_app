@@ -391,7 +391,29 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                         value: selectedItem,
                         hint: const Text("Select Item"),
                         items:
-                            ['TEE', 'POLO', 'Jacket'].map((item) {
+                            [
+                              "Tee",
+                              "Polo",
+                              "Jacket",
+                              "Trouser",
+                              "Cardigan",
+                              "Dress",
+                              "Tops",
+                              "Leggings",
+                              "Apron",
+                              "Blazer",
+                              "Skirt",
+                              "Vest",
+                              "Tank Top",
+                              "Sweat Shirt",
+                              "Pant",
+                              "Shirt",
+                              "Short",
+                              "Boxer",
+                              "Frock",
+                              "Romper",
+                            ].map((item) {
+                              // Update this variable
                               return DropdownMenuItem(
                                 value: item,
                                 child: Text(item),

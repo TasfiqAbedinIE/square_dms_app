@@ -29,8 +29,7 @@ class _AppSideBarState extends State<AppSideBar> {
   Future<void> _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', false);
-    await prefs.remove('userID');
-    await prefs.remove('authority');
+    await prefs.clear();
 
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
@@ -93,6 +92,14 @@ class _AppSideBarState extends State<AppSideBar> {
             onTap: () {
               Navigator.pop(context);
               Navigator.pushReplacementNamed(context, '/IE');
+            },
+          ),
+          _buildTile(
+            icon: Icons.man,
+            label: 'Profile',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/profile');
             },
           ),
           if (authority == "ADMIN")

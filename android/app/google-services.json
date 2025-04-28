@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "453436676208",
+    "firebase_url": "https://firsttrial-cff1d-default-rtdb.firebaseio.com",
+    "project_id": "firsttrial-cff1d",
+    "storage_bucket": "firsttrial-cff1d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453436676208:android:d26efebb7d36dd37fe7cb5",
+        "android_client_info": {
+          "package_name": "com.example.square_dms_trial"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDv5net_kO7t5PPdVb2aRkzjw0zdbEmi2U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

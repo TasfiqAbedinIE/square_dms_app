@@ -19,6 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final supabase = Supabase.instance.client;
   String error = "";
 
+  bool _obscurePassword = true;
+
   Future<void> login() async {
     final id = idController.text.trim();
     final password = passwordController.text;
@@ -108,10 +110,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     TextField(
                       controller: passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       decoration: InputDecoration(
                         labelText: "Password",
                         labelStyle: GoogleFonts.lexend(color: Colors.black),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -127,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 80),
-              Text("Version - 0.0.2", style: GoogleFonts.lexend()),
+              Text("Version - 0.0.5", style: GoogleFonts.lexend()),
               SizedBox(height: 10),
               Text(
                 "Developed By - IE & Workstudy Department",

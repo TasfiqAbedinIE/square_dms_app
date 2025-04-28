@@ -6,9 +6,15 @@ import 'package:square_dms_trial/pages/homeScreen.dart';
 import 'package:square_dms_trial/pages/adminScreen.dart';
 import 'package:square_dms_trial/pages/ieScreen.dart';
 import 'package:square_dms_trial/pages/skillMatrixScreen.dart';
+import 'package:square_dms_trial/pages/profileScreen.dart';
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:square_dms_trial/service/pushnotificationservice.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 const supabaseUrl = 'https://xwmfquxefxkswpslzxhq.supabase.co';
 const supabaseAnonKey =
@@ -16,12 +22,29 @@ const supabaseAnonKey =
 
 final connectivityService = ConnectivityService();
 
+@pragma('vm:entry-point') // Needed for background handling!
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('🔥 Background message received: ${message.notification?.title}');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+  await Firebase.initializeApp();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // await requestNotificationPermission();
+  await PushNotificationService.initialize();
 
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  final token = await messaging.getToken();
+  print('📱 Device Token: $token');
 
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
@@ -39,10 +62,21 @@ class _MyAppState extends State<MyApp> {
       GlobalKey<ScaffoldMessengerState>();
 
   bool _isOffline = false;
+  String userID = '';
+
+  Future<void> loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userID = prefs.getString('userID') ?? '';
+      print(userID);
+      // authority = prefs.getString('authority') ?? '';
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    loadUserInfo();
 
     connectivityService.connectivityStream.listen((isConnected) {
       if (!isConnected && !_isOffline) {
@@ -80,6 +114,7 @@ class _MyAppState extends State<MyApp> {
         '/login': (context) => const LoginScreen(),
         '/production': (context) => const HourlyProductionScreen(),
         '/skill_matrix': (context) => const SkillMatrixScreen(),
+        '/profile': (context) => ProfileScreen(),
       },
     );
   }

@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HourlyDataEntryScreen extends StatefulWidget {
   const HourlyDataEntryScreen({super.key});
 
   @override
-  State<HourlyDataEntryScreen> createState() => _DataEntryScreenState();
+  State<HourlyDataEntryScreen> createState() => _HourlyDataEntryScreenState();
 }
 
-class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
+class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
   String? selectedBlock;
-  String? selectedHour;
-  final List<String> hours = List.generate(9, (index) => '${8 + index}:00');
+  bool isLoading = true; // ✨ New loading state
+
   Map<int, TextEditingController> productionControllers = {};
   Map<int, TextEditingController> targetControllers = {};
   Map<int, TextEditingController> remarksControllers = {};
   List<int> linesToShow = [];
+  bool isMasterUser = false; // 🔥 New flag
 
-  final Map<int, TextEditingController> lineControllers = {};
   final Map<String, List<int>> blockLines = {
     '1-6': [1, 2, 3, 4, 5, 6],
     '7-15': [7, 8, 9, 10, 11, 12, 13, 14, 15],
@@ -40,112 +41,86 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
     '115-124': [115, 116, 117, 118, 119, 120, 121, 122, 123, 124],
   };
 
-  String convertToTime(String hourLabel) {
-    final timeMap = {
-      '8:00': '08:00:00',
-      '9:00': '09:00:00',
-      '10:00': '10:00:00',
-      '11:00': '11:00:00',
-      '12:00': '12:00:00',
-      '13:00': '13:00:00',
-      '14:00': '14:00:00',
-      '15:00': '15:00:00',
-      '16:00': '16:00:00',
-    };
-
-    return timeMap[hourLabel] ?? '00:00:00';
-  }
+  String userId = '';
 
   @override
   void initState() {
     super.initState();
-    _initControllers('1-6'); // default block
-    selectedBlock = '1-6';
+    _fetchUserWorkingArea();
   }
 
-  void _fetchLatestTargetForLine(int line) async {
-    final client = Supabase.instance.client;
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  Future<void> _fetchUserWorkingArea() async {
+    try {
+      final client = Supabase.instance.client;
+      // final userId = client.auth.currentUser?.id;
 
-    final response =
-        await client
-            .from('Hourly_Production')
-            .select('target')
-            .eq('line', line)
-            .eq('block', selectedBlock!)
-            .eq('date', today)
-            .order('hour', ascending: false)
-            .limit(1)
-            .maybeSingle();
+      final prefs = await SharedPreferences.getInstance();
+      final storedUserId = prefs.getString('userID') ?? '';
 
-    if (response != null && response['target'] != null) {
-      setState(() {
-        targetControllers[line]?.text = response['target'].toString();
-      });
+      if (storedUserId == null) {
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final response =
+          await client
+              .from('USERS')
+              .select('working_area')
+              .eq('org_id', storedUserId)
+              .maybeSingle();
+
+      if (response != null && response['working_area'] != null) {
+        final area = response['working_area'];
+
+        setState(() {
+          if (area == 'MASTER') {
+            isMasterUser = true; // 🔥 user is MASTER
+            selectedBlock = '1-6'; // set any default initially
+            _initControllers(selectedBlock!);
+          } else {
+            isMasterUser = false;
+            selectedBlock = area;
+            _initControllers(selectedBlock!);
+          }
+        });
+      }
+    } catch (e) {
+      // handle error
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
   void _initControllers(String block) {
     final lines = blockLines[block] ?? [];
-    setState(() {
-      linesToShow = lines;
-    });
+    linesToShow = lines;
     for (var line in lines) {
       productionControllers[line] ??= TextEditingController();
       targetControllers[line] ??= TextEditingController();
-      _fetchLatestTargetForLine(line);
       remarksControllers[line] ??= TextEditingController();
     }
   }
 
   @override
   void dispose() {
-    for (var controller in lineControllers.values) {
+    for (var controller in productionControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in targetControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in remarksControllers.values) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  // ✅ Add the function here
-  // void submitData() async {
-  //   final client = Supabase.instance.client;
-  //   final formattedDate = DateTime.now().toIso8601String().substring(0, 10);
-  //   // final formattedTime = convertToTime(selectedHour!);
-  //   final now = DateTime.now();
-  //   final formattedTime = DateFormat('HH:00:00').format(now);
-
-  //   for (var line in linesToShow) {
-  //     final productionText = productionControllers[line]?.text ?? '';
-  //     final targetText = targetControllers[line]?.text ?? '';
-  //     final remarksText = remarksControllers[line]?.text ?? '';
-
-  //     if (productionText.isEmpty || targetText.isEmpty) continue;
-
-  //     final int production = int.tryParse(productionText) ?? 0;
-  //     final int target = int.tryParse(targetText) ?? 0;
-
-  //     await client.from('Hourly_Production').insert({
-  //       'date': formattedDate,
-  //       'hour': formattedTime,
-  //       'block': selectedBlock,
-  //       'line': line,
-  //       'production_qty': production,
-  //       'target': target,
-  //       'remarks': remarksText,
-  //     });
-  //   }
-
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     const SnackBar(content: Text('Data submitted successfully')),
-  //   );
-  // }
-
   void submitData() async {
     final client = Supabase.instance.client;
-    final formattedDate = DateTime.now().toIso8601String().substring(0, 10);
+    final formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final now = DateTime.now();
-    final oneHourLater = now.add(Duration(hours: 1));
-    final formattedTime = DateFormat('HH:00:00').format(oneHourLater);
+    final oneHourBefore = now.subtract(Duration(hours: 0));
+    final formattedTime = DateFormat('HH:00:00').format(oneHourBefore);
 
     List<int> skippedLines = [];
 
@@ -159,7 +134,6 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
       final int production = int.tryParse(productionText) ?? 0;
       final int target = int.tryParse(targetText) ?? 0;
 
-      // 🔍 Check for duplicate record
       final existing =
           await client
               .from('Hourly_Production')
@@ -171,11 +145,10 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
               .maybeSingle();
 
       if (existing != null) {
-        skippedLines.add(line); // ⚠️ Mark line as skipped
+        skippedLines.add(line);
         continue;
       }
 
-      // ✅ Insert if not exists
       await client.from('Hourly_Production').insert({
         'date': formattedDate,
         'hour': formattedTime,
@@ -187,7 +160,6 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
       });
     }
 
-    // 🎉 Show result message
     if (skippedLines.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -204,18 +176,18 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
     }
   }
 
-  // ✅ Other lifecycle methods (initState, build, etc.)
-
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final linesToShow = blockLines[selectedBlock] ?? [];
     final now = DateTime.now();
-    final oneHourLater = now.add(Duration(hours: 1));
-    final formattedTime = DateFormat('HH:00:00').format(oneHourLater);
+    final oneHourBefore = now.subtract(Duration(hours: 0));
+    final formattedTime = DateFormat('HH:00:00').format(oneHourBefore);
 
     return Scaffold(
-      // appBar: AppBar(title: const Text("Hourly Production")),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -225,35 +197,35 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
               "Date: $today ($formattedTime)",
               style: const TextStyle(fontSize: 16),
             ),
-            SizedBox(height: 10),
+            // Text($storedUserId),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  flex: 2,
                   child: DropdownButtonFormField<String>(
                     value: selectedBlock,
                     items:
-                        blockLines.keys
-                            .map(
-                              (block) => DropdownMenuItem(
-                                value: block,
-                                child: Text("Block $block"),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedBlock = value;
-                        _initControllers(value!);
-                      });
-                    },
+                        blockLines.keys.map((block) {
+                          return DropdownMenuItem(
+                            value: block,
+                            child: Text("Block $block"),
+                          );
+                        }).toList(),
+                    onChanged:
+                        isMasterUser
+                            ? (value) {
+                              setState(() {
+                                selectedBlock = value!;
+                                _initControllers(selectedBlock!);
+                              });
+                            }
+                            : null, // ❌ If not MASTER, disable dropdown
                     decoration: const InputDecoration(
-                      labelText: 'Select Block',
+                      labelText: 'Block',
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
               ],
             ),
             const SizedBox(height: 16),
@@ -272,7 +244,6 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -295,7 +266,7 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 10),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: TextField(
                                   controller: targetController,
@@ -308,7 +279,7 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
                               ),
                             ],
                           ),
-                          SizedBox(height: 10),
+                          const SizedBox(height: 10),
                           TextField(
                             controller: remarksController,
                             keyboardType: TextInputType.text,
@@ -324,7 +295,6 @@ class _DataEntryScreenState extends State<HourlyDataEntryScreen> {
                 },
               ),
             ),
-
             Center(
               child: ElevatedButton(
                 onPressed: submitData,
