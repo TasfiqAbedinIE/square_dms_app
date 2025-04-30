@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:square_dms_trial/pages/aboutScreen.dart';
 import 'package:square_dms_trial/pages/hourlyProductionScreen.dart';
 import 'package:square_dms_trial/pages/homeScreen.dart';
 import 'package:square_dms_trial/pages/adminScreen.dart';
@@ -13,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:square_dms_trial/service/pushnotificationservice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -115,6 +117,8 @@ class _MyAppState extends State<MyApp> {
         '/production': (context) => const HourlyProductionScreen(),
         '/skill_matrix': (context) => const SkillMatrixScreen(),
         '/profile': (context) => ProfileScreen(),
+        '/about': (context) => AboutScreen(),
+        '/nonProductive': (context) => NonProductiveTimeScreen(),
       },
     );
   }

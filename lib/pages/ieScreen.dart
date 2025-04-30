@@ -29,7 +29,12 @@ class IEScreen extends StatelessWidget {
               Icons.local_activity,
               "/skill_matrix",
             ),
-            _buildCard(context, "Non Productive Time", Icons.timelapse, "/smv"),
+            _buildCard(
+              context,
+              "Non Productive Time",
+              Icons.timelapse,
+              "/nonProductive",
+            ),
             _buildCard(context, "Target", Icons.track_changes, "/target"),
             _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
           ],

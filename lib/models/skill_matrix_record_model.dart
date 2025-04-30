@@ -1,4 +1,5 @@
 class SkillMatrixRecord {
+  final int id;
   final String referenceNumber;
   final int lineNumber;
   final String buyer;
@@ -17,6 +18,7 @@ class SkillMatrixRecord {
   final String deptid;
 
   SkillMatrixRecord({
+    required this.id,
     required this.referenceNumber,
     required this.lineNumber,
     required this.buyer,
@@ -37,6 +39,7 @@ class SkillMatrixRecord {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'referenceNumber': referenceNumber,
       'lineNumber': lineNumber,
       'buyer': buyer,
@@ -58,6 +61,7 @@ class SkillMatrixRecord {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'referenceNumber': referenceNumber,
       'lineNumber': lineNumber,
       'buyer': buyer,
@@ -79,6 +83,7 @@ class SkillMatrixRecord {
 
   factory SkillMatrixRecord.fromMap(Map<String, dynamic> map) {
     return SkillMatrixRecord(
+      id: map['id'],
       referenceNumber: map['referenceNumber'] ?? '',
       lineNumber: map['lineNumber'] ?? 0,
       buyer: map['buyer'] ?? '',

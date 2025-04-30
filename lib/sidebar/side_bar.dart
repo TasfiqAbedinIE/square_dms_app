@@ -102,6 +102,7 @@ class _AppSideBarState extends State<AppSideBar> {
               Navigator.pushReplacementNamed(context, '/profile');
             },
           ),
+
           if (authority == "ADMIN")
             _buildTile(
               icon: Icons.admin_panel_settings,
@@ -112,6 +113,14 @@ class _AppSideBarState extends State<AppSideBar> {
               },
             ),
           const Spacer(),
+          _buildTile(
+            icon: Icons.info,
+            label: 'About',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/about');
+            },
+          ),
           const Divider(),
           _buildTile(
             icon: Icons.logout,

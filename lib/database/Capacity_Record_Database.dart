@@ -42,7 +42,8 @@ class CapacityRecordDatabase {
             form TEXT,
             lapCount INTEGER,
             avgCycle REAL,
-            capacityPH INTEGER
+            capacityPH INTEGER,
+            deptid TEXT
           )
         ''');
       },

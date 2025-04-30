@@ -447,7 +447,8 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                           }
 
                           final newRecord = CapacityRecord(
-                            referenceNumber: 'REF${Random().nextInt(999999)}',
+                            referenceNumber:
+                                'REF${DateTime.now().millisecondsSinceEpoch}',
                             lineNumber: int.parse(lineController.text),
                             buyer: selectedBuyer ?? '',
                             salesDocument: selectedSalesDoc ?? '',

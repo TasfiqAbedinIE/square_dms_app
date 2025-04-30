@@ -12,51 +12,57 @@ class PushNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    try {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-    // Request Notification Permission
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+      // Request permission
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('✅ User granted permission');
-      String? token = await messaging.getToken();
-      print('📱 Device Token: $token');
+      print('🔔 Permission status: ${settings.authorizationStatus}');
 
-      if (token != null) {
-        await saveDeviceTokenToSupabase(token);
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        final token = await messaging.getToken();
+        print('📱 Device Token: $token');
+
+        if (token != null) {
+          // Schedule save AFTER app UI is rendered
+          Future.delayed(Duration.zero, () => saveDeviceTokenToSupabase(token));
+        }
       }
-    } else {
-      print('❌ User declined notification permission');
+
+      // Set up local notifications
+      const AndroidInitializationSettings androidInit =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const InitializationSettings initSettings = InitializationSettings(
+        android: androidInit,
+      );
+
+      await _localNotificationsPlugin.initialize(initSettings);
+
+      // Foreground notification handler
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print(
+          '📩 Foreground message: ${message.notification?.title ?? "No Title"}',
+        );
+        showLocalNotification(message);
+      });
+    } catch (e) {
+      print('❌ PushNotificationService initialization failed: $e');
     }
-
-    // 🔥 Local Notification Setup
-    const AndroidInitializationSettings androidInit =
-        AndroidInitializationSettings(
-          '@mipmap/ic_launcher',
-        ); // Use your app icon
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidInit,
-    );
-
-    await _localNotificationsPlugin.initialize(initSettings);
-
-    // Foreground messages: show local popup
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('📩 Foreground message received: ${message.notification?.title}');
-      showLocalNotification(message);
-    });
   }
 
   static void showLocalNotification(RemoteMessage message) async {
+    final title = message.notification?.title ?? 'New Message';
+    final body = message.notification?.body ?? 'You have a new notification.';
+
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-          'high_importance_channel', // channel ID
-          'High Importance Notifications', // channel name
+          'high_importance_channel',
+          'High Importance Notifications',
           channelDescription:
               'This channel is used for important notifications.',
           importance: Importance.high,
@@ -68,9 +74,9 @@ class PushNotificationService {
     );
 
     await _localNotificationsPlugin.show(
-      message.notification.hashCode,
-      message.notification?.title ?? 'No Title',
-      message.notification?.body ?? 'No Body',
+      message.hashCode,
+      title,
+      body,
       platformDetails,
     );
   }

@@ -76,8 +76,36 @@ class _UserListPageState extends State<UserListPage> {
       text: user?['authority'],
     );
     final workingAreaController = TextEditingController(
-      text: user?['working_area'],
+      text:
+          user != null && user['working_area'] != null
+              ? (user['working_area'] is List
+                  ? (user['working_area'] as List).join(', ')
+                  : (user['working_area'] as String))
+              : '',
     );
+
+    bool validateWorkingAreaInput(String input) {
+      // Remove spaces
+      final cleanedInput = input.replaceAll(' ', '');
+
+      // Empty input is invalid
+      if (cleanedInput.isEmpty) {
+        return false;
+      }
+
+      // Split into parts by comma
+      final parts = cleanedInput.split(',');
+
+      for (final part in parts) {
+        // Each part should match format like 1-6 or 7-15
+        final regex = RegExp(r'^\d+-\d+$');
+        if (!regex.hasMatch(part)) {
+          return false;
+        }
+      }
+
+      return true; // ✅ All parts valid
+    }
 
     final List<String> dept_list = [
       'CUTTING',
@@ -110,7 +138,7 @@ class _UserListPageState extends State<UserListPage> {
       'Sr. Manager',
       'Manager',
       'Deputy Manager',
-      'Assistant Manager',
+      'Asst. Manager',
       'Sr. Executive-I',
       'Sr. Executive-II',
       'Executive-I',
@@ -131,38 +159,6 @@ class _UserListPageState extends State<UserListPage> {
     ];
 
     final List<String> authority_list = ["ADMIN", "USER", "GUEST"];
-
-    final List<String> workingArea_list = [
-      "Cutting",
-      "Embroidery",
-      "Printing",
-      "Finishing",
-      "Quality Assurance",
-      'Washing',
-      "Planning",
-      "Maintenance",
-      "Cap Production",
-      "Technical & Product Dev",
-      "1-6",
-      "7-15",
-      "16-21",
-      "22-30",
-      "31,36",
-      "37-41",
-      "42-46",
-      "47-49",
-      "50-55",
-      "56-62",
-      "63-69",
-      "70-76",
-      "77-81",
-      "82-86",
-      "87-91",
-      "92-96",
-      "97-105",
-      "106-114",
-      "116-124",
-    ];
 
     showDialog(
       context: context,
@@ -223,23 +219,14 @@ class _UserListPageState extends State<UserListPage> {
                   decoration: const InputDecoration(labelText: 'Password'),
                   obscureText: false,
                 ),
-                DropdownButtonFormField<String>(
-                  value:
-                      workingAreaController.text.isNotEmpty
-                          ? workingAreaController.text
-                          : null,
-                  decoration: const InputDecoration(labelText: "Working Area"),
-                  items:
-                      workingArea_list.map((dept) {
-                        return DropdownMenuItem<String>(
-                          value: dept,
-                          child: Text(dept),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    workingAreaController.text = value ?? '';
-                  },
+                TextField(
+                  controller: workingAreaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Working Area (comma-separated)',
+                    hintText: 'Example: 1-6,16-21,22-30',
+                  ),
                 ),
+
                 DropdownButtonFormField<String>(
                   value:
                       selectedAuthorityController.text.isNotEmpty
@@ -272,17 +259,21 @@ class _UserListPageState extends State<UserListPage> {
                 final designation = designationController.text.trim();
                 final password = passwordController.text.trim();
                 final authority = selectedAuthorityController.text.trim();
-                final working_area = workingAreaController.text.trim();
+                final working_area =
+                    workingAreaController.text
+                        .trim()
+                        .split(',')
+                        .map((e) => e.trim())
+                        .where((e) => e.isNotEmpty)
+                        .toList();
 
-                if ([
-                  orgId,
-                  name,
-                  department,
-                  designation,
-                  password,
-                  authority,
-                  working_area,
-                ].any((element) => element == null || element.isEmpty)) {
+                if (orgId.isEmpty ||
+                    name.isEmpty ||
+                    department.isEmpty ||
+                    designation.isEmpty ||
+                    password.isEmpty ||
+                    authority.isEmpty ||
+                    working_area.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("All fields are required")),
                   );
