@@ -6,16 +6,19 @@ class NonProductiveDB {
   static Future<Database> _openDB() async {
     return openDatabase(
       join(await getDatabasesPath(), 'NonProductive.db'),
+
       onCreate: (db, version) {
         return db.execute('''
           CREATE TABLE entries(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             lineNo INTEGER,
             date TEXT,
             startTime TEXT,
             endTime TEXT,
             machine_num int,
-            reason TEXT
+            reason TEXT,
+            durationMinutes int,
+            totalNP int,
           )
         ''');
       },
@@ -25,6 +28,7 @@ class NonProductiveDB {
 
   static Future<void> insertEntry(NonProductiveEntry entry) async {
     final db = await _openDB();
+    // db.execute('''ALTER TABLE entries ADD COLUMN totalNP INTEGER''');
     await db.insert(
       'entries',
       entry.toMap(),
@@ -39,5 +43,28 @@ class NonProductiveDB {
       maps.length,
       (i) => NonProductiveEntry.fromMap(maps[i]),
     );
+  }
+
+  static Future<void> deleteEntry(String id) async {
+    final db = await _openDB();
+    await db.delete('entries', where: 'id = ?', whereArgs: [id]);
+  }
+
+  static Future<void> resetEntriesTable() async {
+    final db = await _openDB();
+    await db.execute('DROP TABLE IF EXISTS entries');
+    await db.execute('''
+    CREATE TABLE entries(
+      id TEXT PRIMARY KEY,
+      lineNo INTEGER,
+      date TEXT,
+      startTime TEXT,
+      endTime TEXT,
+      machine_num INTEGER,
+      reason TEXT,
+      durationMinutes INTEGER,
+      totalNP INTEGER
+    )
+  ''');
   }
 }

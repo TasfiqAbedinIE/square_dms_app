@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:dropdown_search/dropdown_search.dart';
+// import 'package:dropdown_search/dropdown_search.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
@@ -84,28 +84,28 @@ class _UserListPageState extends State<UserListPage> {
               : '',
     );
 
-    bool validateWorkingAreaInput(String input) {
-      // Remove spaces
-      final cleanedInput = input.replaceAll(' ', '');
+    // bool validateWorkingAreaInput(String input) {
+    //   // Remove spaces
+    //   final cleanedInput = input.replaceAll(' ', '');
 
-      // Empty input is invalid
-      if (cleanedInput.isEmpty) {
-        return false;
-      }
+    //   // Empty input is invalid
+    //   if (cleanedInput.isEmpty) {
+    //     return false;
+    //   }
 
-      // Split into parts by comma
-      final parts = cleanedInput.split(',');
+    //   // Split into parts by comma
+    //   final parts = cleanedInput.split(',');
 
-      for (final part in parts) {
-        // Each part should match format like 1-6 or 7-15
-        final regex = RegExp(r'^\d+-\d+$');
-        if (!regex.hasMatch(part)) {
-          return false;
-        }
-      }
+    //   for (final part in parts) {
+    //     // Each part should match format like 1-6 or 7-15
+    //     final regex = RegExp(r'^\d+-\d+$');
+    //     if (!regex.hasMatch(part)) {
+    //       return false;
+    //     }
+    //   }
 
-      return true; // ✅ All parts valid
-    }
+    //   return true; // ✅ All parts valid
+    // }
 
     final List<String> dept_list = [
       'CUTTING',

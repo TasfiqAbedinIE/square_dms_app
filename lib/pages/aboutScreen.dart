@@ -134,6 +134,7 @@ class _AboutScreenState extends State<AboutScreen> {
                                   if (!_formKey.currentState!.validate())
                                     return;
                                   setState(() => _isLoading = true);
+                                  bool success = false;
                                   try {
                                     await supabase.from('bugReport').insert({
                                       'user_id': userID,
@@ -146,26 +147,24 @@ class _AboutScreenState extends State<AboutScreen> {
                                       'status': 'Reviewing',
                                     });
                                     await _loadBugs();
-                                    Navigator.of(ctx).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Bug reported (Ref: $ref)',
-                                        ),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
+                                    success = true;
                                   } catch (_) {
-                                    Navigator.of(ctx).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Failed to report bug.'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
+                                    success = false;
                                   } finally {
                                     setState(() => _isLoading = false);
                                     _bugController.clear();
+                                    Navigator.of(ctx).pop(); // Close modal
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          success
+                                              ? 'Bug reported successfully (Ref: $ref)'
+                                              : 'Failed to report bug.',
+                                        ),
+                                        backgroundColor:
+                                            success ? Colors.green : Colors.red,
+                                      ),
+                                    );
                                   }
                                 },
                         child:

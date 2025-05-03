@@ -16,7 +16,7 @@ import 'package:square_dms_trial/service/pushnotificationservice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
 
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 
 const supabaseUrl = 'https://xwmfquxefxkswpslzxhq.supabase.co';
 const supabaseAnonKey =

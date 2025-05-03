@@ -53,26 +53,13 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
     });
   }
 
-  // void startStopwatch() {
-  //   if (!stopwatch.isRunning) {
-  //     stopwatch.start();
-  //     timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-  //       final d = stopwatch.elapsed;
-  //       setState(() {
-  //         elapsedTime =
-  //             "${d.inHours.toString().padLeft(2, '0')}:${(d.inMinutes % 60).toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}";
-  //       });
-  //     });
-  //   }
-  // }
-
   void startStopwatch() {
     if (!stopwatch.isRunning) {
       stopwatch.start();
       // Every 10ms is enough to update centiseconds
       timer = Timer.periodic(const Duration(milliseconds: 10), (_) {
         final d = stopwatch.elapsed;
-        final h = d.inHours.toString().padLeft(2, '0');
+        // final h = d.inHours.toString().padLeft(2, '0');
         final m = (d.inMinutes % 60).toString().padLeft(2, '0');
         final s = (d.inSeconds % 60).toString().padLeft(2, '0');
         // Compute centiseconds: two‐digit fraction of a second
@@ -153,13 +140,6 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
     final avg = averageLapTime;
     return avg == 0 ? 0 : (3600 / avg).floor();
   }
-
-  // @override
-  // void dispose() {
-  //   stopwatch.stop();
-  //   timer?.cancel();
-  //   super.dispose();
-  // }
 
   Future<void> saveRecord() async {
     if (operatorController.text.isEmpty ||
