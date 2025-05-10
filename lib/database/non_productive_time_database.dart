@@ -19,6 +19,8 @@ class NonProductiveDB {
             reason TEXT,
             durationMinutes int,
             totalNP int,
+            totalLostPcs DOUBLE,
+            machine_code TEXT
           )
         ''');
       },
@@ -28,7 +30,7 @@ class NonProductiveDB {
 
   static Future<void> insertEntry(NonProductiveEntry entry) async {
     final db = await _openDB();
-    // db.execute('''ALTER TABLE entries ADD COLUMN totalNP INTEGER''');
+    // db.execute('''ALTER TABLE entries ADD COLUMN machine_code TEXT''');
     await db.insert(
       'entries',
       entry.toMap(),
@@ -63,8 +65,21 @@ class NonProductiveDB {
       machine_num INTEGER,
       reason TEXT,
       durationMinutes INTEGER,
-      totalNP INTEGER
+      totalNP INTEGER,
+      totalLostPcs DOUBLE,
+      machine_code TEXT
     )
   ''');
+  }
+
+  static Future<void> updateEntry(NonProductiveEntry entry) async {
+    final db = await _openDB();
+    await db.update(
+      'entries',
+      entry.toMap(),
+      where: 'id = ?',
+      whereArgs: [entry.id],
+    );
+    await db.close();
   }
 }

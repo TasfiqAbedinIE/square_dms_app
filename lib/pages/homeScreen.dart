@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-// import 'package:intl/intl.dart';
+import 'package:intl/intl.dart';
 import 'package:square_dms_trial/sidebar/side_bar.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -13,6 +14,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DateTimeRange? dashboardDateRange;
   DateTimeRange? shipmentDateRange;
   DateTimeRange? overtimeDateRange;
+
+  int totalShippedQty = 0;
+  int totalExcessQty = 0;
+  int totalShortQty = 0;
+  List<MapEntry<String, int>> topBuyers = [];
+
+  final numberFormatter = NumberFormat('#,##0');
 
   final List<String> departments = [
     'Cutting',
@@ -38,31 +46,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'title': 'Efficiency', 'icon': Icons.speed, 'color': Colors.tealAccent},
   ];
 
-  final List<Map<String, dynamic>> shipmentStatusData = [
+  List<Map<String, dynamic>> get shipmentStatusData => [
     {
       'title': 'Total Shipment',
+      'value': totalShippedQty,
       'icon': Icons.local_shipping,
       'color': Colors.blue,
     },
     {
       'title': 'Excess Shipment',
+      'value': totalExcessQty,
       'icon': Icons.add_circle,
       'color': Colors.green,
     },
     {
       'title': 'Short Shipment',
+      'value': totalShortQty,
       'icon': Icons.remove_circle,
       'color': Colors.redAccent,
     },
   ];
 
-  final List<Map<String, dynamic>> buyerShipmentData = [
-    {'x': 0, 'buyer': 'Buyer A', 'y': 2500, 'color': Colors.blue},
-    {'x': 1, 'buyer': 'Buyer B', 'y': 2000, 'color': Colors.green},
-    {'x': 2, 'buyer': 'Buyer C', 'y': 1800, 'color': Colors.orange},
-    {'x': 3, 'buyer': 'Buyer D', 'y': 1500, 'color': Colors.purple},
-    {'x': 4, 'buyer': 'Buyer E', 'y': 1300, 'color': Colors.redAccent},
-  ];
+  List<Map<String, dynamic>> get buyerShipmentData => List.generate(
+    topBuyers.length,
+    (index) => {
+      'x': index,
+      'buyer': topBuyers[index].key,
+      'y': topBuyers[index].value,
+      'color': Colors.primaries[index % Colors.primaries.length],
+    },
+  );
 
   final List<Map<String, dynamic>> overtimeData = [
     {'x': 0, 'dept': 'Cutting', 'y': 120, 'color': Colors.blue},
@@ -70,6 +83,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'x': 2, 'dept': 'Embroidery', 'y': 150, 'color': Colors.orange},
     {'x': 3, 'dept': 'Sewing', 'y': 300, 'color': Colors.redAccent},
   ];
+
+  // Shipment data Calculation ------------------------------>>>>>>>>>>>>>
+
+  Future<Map<String, dynamic>> calculateShipmentStats(
+    DateTimeRange range,
+  ) async {
+    // final dateFormat = DateFormat('yyyy-M-d');
+
+    // final startDate = dateFormat.format(range.start);
+    // final endDate = dateFormat.format(range.end);
+    final startDate =
+        range.start.toIso8601String().split('T')[0]; // '2025-05-01'
+    final endDate = range.end.toIso8601String().split('T')[0]; // '2025-05-05'
+
+    final List<Map<String, dynamic>> data = await Supabase.instance.client
+        .from('shipment_data')
+        .select()
+        .gte('Date', startDate)
+        .lte('Date', endDate);
+
+    int totalShipped = 0;
+    int totalExcess = 0;
+    int totalShort = 0;
+    Map<String, int> buyerShipment = {};
+
+    for (final record in data) {
+      final shippedQty = (record['ShippedQty'] ?? 0) as num;
+      final excessQty = (record['Excess'] ?? 0) as num;
+      final shortQty = (record['Short'] ?? 0) as num;
+
+      totalShipped += shippedQty.toInt();
+      totalExcess += excessQty.toInt();
+      totalShort += shortQty.toInt();
+
+      final buyerName = record['BuyerName'] ?? 'Unknown';
+      buyerShipment[buyerName] =
+          (buyerShipment[buyerName] ?? 0) + shippedQty.toInt();
+    }
+
+    print(startDate);
+    print(endDate);
+
+    final top5Buyers =
+        buyerShipment.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+    return {
+      'totalShipped': totalShipped,
+      'totalExcess': totalExcess,
+      'totalShort': totalShort,
+      'top5Buyers': top5Buyers.take(5).toList(),
+    };
+  }
 
   Future<void> _selectDashboardDateRange() async {
     final DateTimeRange? picked = await showDateRangePicker(
@@ -90,22 +156,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // End of shipment data calculation -------------------------------->>>>>>>>>>
+
+  // Loading shipment State ------------>>>>>>>>>>>
+  Future<void> loadShipmentStats() async {
+    final range =
+        shipmentDateRange ??
+        DateTimeRange(
+          start: DateTime(DateTime.now().year, DateTime.now().month, 1),
+          end: DateTime.now(),
+        );
+
+    final result = await calculateShipmentStats(range);
+
+    setState(() {
+      totalShippedQty = result['totalShipped'];
+      totalExcessQty = result['totalExcess'];
+      totalShortQty = result['totalShort'];
+      topBuyers = result['top5Buyers']; // List<MapEntry<String, int>>
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    final now = DateTime.now();
+    shipmentDateRange = DateTimeRange(
+      start: DateTime(now.year, now.month, 1),
+      end: now,
+    );
+
+    loadShipmentStats();
+  }
+
   Future<void> _selectShipmentDateRange() async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      initialDateRange:
-          shipmentDateRange ??
-          DateTimeRange(
-            start: DateTime.now().subtract(Duration(days: 7)),
-            end: DateTime.now(),
-          ),
+      initialDateRange: shipmentDateRange,
     );
     if (picked != null) {
       setState(() {
         shipmentDateRange = picked;
       });
+      await loadShipmentStats(); // reload stats on date change
     }
   }
 
@@ -158,66 +254,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blueAccent.withAlpha(30),
-                            blurRadius: 10,
-                            spreadRadius: 3,
-                          ),
-                        ],
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedDepartment,
-                          icon: Icon(Icons.arrow_drop_down),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              selectedDepartment = newValue!;
-                            });
-                          },
-                          items:
-                              departments
-                                  .map(
-                                    (String value) => DropdownMenuItem<String>(
-                                      value: value,
-                                      child: Text(
-                                        value,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _selectDashboardDateRange,
-                      icon: Icon(
-                        Icons.calendar_today,
-                        color: Colors.blueAccent,
-                        size: 28,
-                      ),
-                    ),
+                    //     Container(
+                    //       padding: EdgeInsets.symmetric(
+                    //         horizontal: 16,
+                    //         vertical: 8,
+                    //       ),
+                    //       decoration: BoxDecoration(
+                    //         color: Colors.white,
+                    //         borderRadius: BorderRadius.circular(12),
+                    //         boxShadow: [
+                    //           BoxShadow(
+                    //             color: Colors.blueAccent.withAlpha(30),
+                    //             blurRadius: 10,
+                    //             spreadRadius: 3,
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       child: DropdownButtonHideUnderline(
+                    //         child: DropdownButton<String>(
+                    //           value: selectedDepartment,
+                    //           icon: Icon(Icons.arrow_drop_down),
+                    //           onChanged: (String? newValue) {
+                    //             setState(() {
+                    //               selectedDepartment = newValue!;
+                    //             });
+                    //           },
+                    //           items:
+                    //               departments
+                    //                   .map(
+                    //                     (String value) => DropdownMenuItem<String>(
+                    //                       value: value,
+                    //                       child: Text(
+                    //                         value,
+                    //                         style: TextStyle(
+                    //                           fontSize: 16,
+                    //                           fontWeight: FontWeight.bold,
+                    //                         ),
+                    //                       ),
+                    //                     ),
+                    //                   )
+                    //                   .toList(),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     IconButton(
+                    //       onPressed: _selectDashboardDateRange,
+                    //       icon: Icon(
+                    //         Icons.calendar_today,
+                    //         color: Colors.blueAccent,
+                    //         size: 28,
+                    //       ),
+                    //     ),
                   ],
                 ),
 
-                sectionTitle('Production Status'),
-                horizontalCards(productionStatusData),
+                // sectionTitle('Production Status'),
+                // horizontalCards(productionStatusData),
 
-                sectionTitle('Production Trend'),
-                lineChartWidget(),
-
+                // sectionTitle('Production Trend'),
+                // lineChartWidget(),
                 sectionTitleWithIcon(
                   'Shipment Status',
                   _selectShipmentDateRange,
@@ -304,7 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Icon(data[index]['icon'], color: Colors.white, size: 32),
                   SizedBox(height: 10),
                   Text(
-                    data[index]['title'],
+                    numberFormatter.format(data[index]['value']),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -373,8 +468,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   );
 
   Widget buyerBarChartWidget() => Container(
-    height: 300,
-    padding: EdgeInsets.all(16),
+    height: 350,
+    padding: EdgeInsets.fromLTRB(16, 16, 16, 26),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
@@ -389,21 +484,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
     child: BarChart(
       BarChartData(
         barGroups:
-            buyerShipmentData
-                .map(
-                  (data) => BarChartGroupData(
-                    x: data['x'],
-                    barRods: [
-                      BarChartRodData(
-                        toY: data['y'].toDouble(),
-                        color: data['color'],
-                        width: 18,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ],
+            topBuyers.asMap().entries.map((entry) {
+              final index = entry.key;
+              final buyer = entry.value.key;
+              final value = entry.value.value;
+
+              return BarChartGroupData(
+                x: index,
+                barRods: [
+                  BarChartRodData(
+                    toY: value.toDouble(),
+                    color: const Color.fromARGB(
+                      255,
+                      25,
+                      109,
+                      255,
+                    ), // ✅ One consistent color
+                    width: 30,
+                    borderRadius: BorderRadius.circular(3),
                   ),
-                )
-                .toList(),
+                ],
+              );
+            }).toList(),
+
+        titlesData: FlTitlesData(
+          show: true,
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false), // ❌ Hide vertical axis
+          ),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (double value, TitleMeta meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= topBuyers.length) return SizedBox();
+                return SideTitleWidget(
+                  meta: meta,
+                  child: Transform.rotate(
+                    angle: -0.6,
+                    child: Text(
+                      topBuyers[index].key,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                );
+                // return Padding(
+                //   padding: const EdgeInsets.only(top: 8.0),
+                //   child: Text(
+                //     topBuyers[index].key,
+                //     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                //   ),
+                // );
+              },
+            ),
+          ),
+        ),
+
         borderData: FlBorderData(show: false),
         gridData: FlGridData(show: true),
       ),

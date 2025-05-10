@@ -23,6 +23,7 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
   List<int> linesToShow = [];
   String currentDate = '';
   String currentHour = '';
+  bool isSubmitting = false;
 
   final Map<String, List<int>> blockLines = {
     '1-6': [1, 2, 3, 4, 5, 6],
@@ -161,13 +162,16 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
   }
 
   Future<void> submitHourlyData() async {
+    if (isSubmitting) return; // prevent double tap
+
+    setState(() => isSubmitting = true); // 🟢 Start loading
+
     final client = Supabase.instance.client;
-
     final now = DateTime.now();
-    final todayDate = DateFormat('yyyy-MM-dd').format(now); // 2025-04-29
-    final currentHourFormatted = DateFormat('HH:00:00').format(now); // 10:00:00
+    final todayDate = DateFormat('yyyy-MM-dd').format(now);
+    final currentHourFormatted = DateFormat('HH:00:00').format(now);
 
-    int uploadedCount = 0; // 🆕 Counter to track uploads
+    int uploadedCount = 0;
 
     try {
       for (var line in linesToShow) {
@@ -177,10 +181,9 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
         final remarks = remarksControllers[line]?.text ?? '';
 
         if (productionQty == 0 && target == 0 && remarks.isEmpty) {
-          continue; // 🚫 Skip empty lines
+          continue;
         }
 
-        // 🔥 Step 1: Check if this line + date already exists
         final existing =
             await client
                 .from('Hourly_Production')
@@ -188,14 +191,14 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
                 .eq('date', todayDate)
                 .eq('line', line)
                 .eq('hour', currentHourFormatted)
+                .limit(1)
                 .maybeSingle();
 
-        if (existing != null) {
+        if (existing != null && existing.isNotEmpty) {
           debugPrint('Skipping Line $line - Already exists.');
-          continue; // 🚫 Skip if record exists
+          continue;
         }
 
-        // 🔥 Step 2: Insert new record if not exists
         await client.from('Hourly_Production').insert({
           'date': todayDate,
           'hour': currentHourFormatted,
@@ -206,7 +209,7 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
           'remarks': remarks,
         });
 
-        uploadedCount++; // ✅ Count successful uploads
+        uploadedCount++;
       }
 
       if (uploadedCount > 0) {
@@ -215,17 +218,9 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
             content: Text('Successfully uploaded $uploadedCount entries!'),
           ),
         );
-
-        // 🔥 Clear fields if something was uploaded
-        for (var controller in productionControllers.values) {
-          controller.clear();
-        }
-        for (var controller in targetControllers.values) {
-          controller.clear();
-        }
-        for (var controller in remarksControllers.values) {
-          controller.clear();
-        }
+        productionControllers.values.forEach((c) => c.clear());
+        targetControllers.values.forEach((c) => c.clear());
+        remarksControllers.values.forEach((c) => c.clear());
       } else {
         ScaffoldMessenger.of(
           context,
@@ -236,6 +231,8 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error uploading data: $e')));
+    } finally {
+      setState(() => isSubmitting = false); // 🔴 End loading
     }
   }
 
@@ -405,8 +402,26 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
 
             Center(
               child: ElevatedButton(
-                onPressed: submitHourlyData,
-                child: const Text('Submit'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 41, 248, 100),
+                ),
+                onPressed: isSubmitting ? null : submitHourlyData,
+                child:
+                    isSubmitting
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                        : const Text(
+                          'Submit',
+                          style: TextStyle(
+                            color: Color.fromARGB(255, 255, 255, 255),
+                          ),
+                        ),
               ),
             ),
           ],

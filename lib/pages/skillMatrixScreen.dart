@@ -32,7 +32,7 @@ class _SkillMatrixScreenState extends State<SkillMatrixScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: const Color.fromARGB(255, 72, 191, 227),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.assessment),

@@ -27,7 +27,7 @@ class CapacityRecordDatabase {
         // Ensure skillMatrixRecords table exists even if DB already created
         await db.execute('''
           CREATE TABLE IF NOT EXISTS skillMatrixRecords (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY,
             referenceNumber TEXT,
             lineNumber INTEGER,
             buyer TEXT,
@@ -53,7 +53,7 @@ class CapacityRecordDatabase {
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE capacity_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY,
         referenceNumber TEXT,
         lineNumber INTEGER,
         buyer TEXT,
@@ -68,7 +68,7 @@ class CapacityRecordDatabase {
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS skillMatrixRecords (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY,
         referenceNumber TEXT,
         lineNumber INTEGER,
         buyer TEXT,

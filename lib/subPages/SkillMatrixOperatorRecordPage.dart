@@ -165,6 +165,8 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Process Record"),
+        backgroundColor: const Color.fromARGB(255, 105, 48, 195),
+        foregroundColor: Colors.white,
         actions: [
           TextButton.icon(
             onPressed: _isSyncing ? null : syncSewingProcessData,
@@ -175,11 +177,11 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
                       width: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.black,
+                        color: Colors.white,
                       ),
                     )
-                    : const Icon(Icons.download, color: Colors.black),
-            label: const Text("Process", style: TextStyle(color: Colors.black)),
+                    : const Icon(Icons.download, color: Colors.white),
+            label: const Text("Process", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -191,7 +193,12 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
                 : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Reference: ${record.referenceNumber}"),
+                    Text(
+                      "Reference: ${record.referenceNumber}",
+                      style: TextStyle(
+                        color: const Color.fromARGB(255, 105, 48, 195),
+                      ),
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -259,6 +266,15 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(
+                          255,
+                          169,
+                          122,
+                          246,
+                        ),
+                        foregroundColor: Colors.white,
+                      ),
                       onPressed: _isUploading ? null : uploadToSupabase,
                       icon:
                           _isUploading
@@ -271,13 +287,13 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
                                 ),
                               )
                               : const Icon(Icons.cloud_upload),
-                      label: const Text("Cloud Saved"),
+                      label: const Text("Cloud Upload"),
                     ),
                   ],
                 ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 94, 43, 255),
+        backgroundColor: const Color.fromARGB(255, 105, 48, 195),
         foregroundColor: Colors.white,
         onPressed: () async {
           await Navigator.push(

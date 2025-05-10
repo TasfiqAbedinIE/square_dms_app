@@ -194,6 +194,7 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
       'avgCycle': averageLapTime.toStringAsFixed(2),
       'capacityPH': capacityPerHour,
       'deptid': isuserID,
+      'id': DateTime.now().microsecondsSinceEpoch,
     };
 
     await db.insert('skillMatrixRecords', newSkillRecord);
@@ -209,7 +210,11 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Time Study")),
+      appBar: AppBar(
+        title: const Text("Time Study"),
+        backgroundColor: const Color.fromARGB(255, 128, 255, 219),
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -340,21 +345,36 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                        ),
                         onPressed: startStopwatch,
                         child: const Text("Start"),
                       ),
                       ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                        ),
                         onPressed: recordLap,
                         child: const Text("Lap"),
                       ),
                       ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                        ),
                         onPressed: stopStopwatch,
                         child: const Text("End"),
                       ),
                       ElevatedButton(
                         onPressed: resetStopwatch,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            251,
+                            169,
+                            163,
+                          ),
+                          foregroundColor: Colors.black,
                         ),
                         child: const Text("Reset"),
                       ),
@@ -374,10 +394,22 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                        ),
                         onPressed: () => Navigator.pop(context),
                         child: const Text("Cancel"),
                       ),
                       ElevatedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          backgroundColor: const Color.fromARGB(
+                            255,
+                            128,
+                            255,
+                            219,
+                          ),
+                        ),
                         onPressed: saveRecord,
                         child: const Text("Save"),
                       ),

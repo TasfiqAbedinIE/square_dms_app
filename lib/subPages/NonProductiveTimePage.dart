@@ -9,6 +9,7 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart';
+import 'package:square_dms_trial/service/qr_scanner_page.dart';
 
 class NonProductiveTimeScreen extends StatefulWidget {
   const NonProductiveTimeScreen({super.key});
@@ -50,11 +51,15 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   };
 
   List<String> departments = [
-    'IE',
+    'Planning',
     'Maintenance',
     'Quality',
     'Cutting',
     'Finishing',
+    'Printing',
+    'Embroidery',
+    'Store',
+    'Fabrics Unit',
   ];
 
   @override
@@ -65,8 +70,23 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   }
 
   Future<void> loadEntries() async {
-    final data = await NonProductiveDB.fetchEntries();
-    setState(() => entries = data);
+    final db = await openDatabase(
+      join(await getDatabasesPath(), 'NonProductive.db'),
+    );
+    print(selectedDate);
+    final formattedDate = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    final result = await db.query(
+      'entries',
+      where: 'date = ?',
+      whereArgs: [formattedDate],
+    );
+
+    setState(() {
+      entries = result.map((e) => NonProductiveEntry.fromMap(e)).toList();
+    });
+
+    await db.close();
   }
 
   Future<void> _fetchUserWorkingArea() async {
@@ -149,6 +169,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     TimeOfDay? endTime = _parseTime(entry.endTime);
     String selectedStartTime = entry.startTime;
     String selectedEndTime = entry.endTime;
+    final hourlyTargetController = TextEditingController();
     final machineNoController = TextEditingController(
       text: entry.machine_num.toString(),
     );
@@ -170,12 +191,28 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      controller: machineNoController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: "Number of Machine",
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: machineNoController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Number of Machine",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: hourlyTargetController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Target/Hour",
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -212,7 +249,8 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                               onPressed: () async {
                                 final picked = await showTimePicker(
                                   context: context,
-                                  initialTime: endTime ?? TimeOfDay.now(),
+                                  initialTime:
+                                      endTime ?? TimeOfDay(hour: 17, minute: 0),
                                 );
                                 if (picked != null) {
                                   setModalState(() {
@@ -230,6 +268,29 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () async {
+                        // Check if time parsing failed
+                        if (startTime == null || endTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select both start and end time',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Ensure formatted strings are up-to-date
+                        selectedStartTime =
+                            selectedStartTime.isEmpty
+                                ? startTime!.format(context)
+                                : selectedStartTime;
+                        selectedEndTime =
+                            selectedEndTime.isEmpty
+                                ? endTime!.format(context)
+                                : selectedEndTime;
+
+                        // Construct datetime for duration calc
                         final now = DateTime.now();
                         final startDateTime = DateTime(
                           now.year,
@@ -246,28 +307,59 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           endTime!.minute,
                         );
 
+                        // Validate duration
+                        if (!startDateTime.isBefore(endDateTime)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Start time must be earlier than end time',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
                         final durationMinutes =
                             endDateTime.difference(startDateTime).inMinutes;
+
+                        // Optional: Validate machine count
+                        final machineCount =
+                            int.tryParse(machineNoController.text) ?? 0;
+                        if (machineCount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Enter a valid machine number'),
+                            ),
+                          );
+                          return;
+                        }
+
                         try {
+                          final hourlyTarget =
+                              double.tryParse(hourlyTargetController.text) ?? 0;
+
                           final updated = NonProductiveEntry(
                             id: entry.id,
                             lineNo: int.tryParse(lineController.text) ?? 0,
                             date: entry.date,
                             startTime: selectedStartTime,
                             endTime: selectedEndTime,
-                            machine_num:
-                                int.tryParse(machineNoController.text) ?? 0,
+                            machine_num: machineCount,
                             reason: reasonController.text,
                             durationMinutes: durationMinutes,
-                            totalNP:
-                                (int.tryParse(machineNoController.text) ?? 0) *
+                            totalNP: machineCount * durationMinutes,
+                            totalLostPcs:
+                                (hourlyTarget / 60) *
+                                machineCount *
                                 durationMinutes,
+                            machine_code: entry.machine_code,
                           );
-                          await NonProductiveDB.insertEntry(
-                            updated,
-                          ); // Replace by ID
+
+                          await NonProductiveDB.updateEntry(updated);
+
                           Navigator.pop(context);
                           loadEntries();
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Entry updated successfully'),
@@ -294,16 +386,14 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   void showAddEntrySheet(BuildContext context) {
     int? selectedLine;
     String? selectedDepartment;
-
-    // final lineController = TextEditingController();
     String? selectedFactor;
-    // final reasonController = TextEditingController();
     DateTime entryDate = selectedDate;
     TimeOfDay? startTime;
     TimeOfDay? endTime;
     String selectedStartTime = '';
     String selectedEndTime = '';
     final machineNoController = TextEditingController();
+    final hourlyTargetController = TextEditingController();
     int? timeDifferenceInMinutes;
     final int durationMinutes;
 
@@ -401,12 +491,28 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                         ),
                       ],
                     ),
-                    TextField(
-                      controller: machineNoController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: "Number of Machine",
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: machineNoController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Number of Machine",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: hourlyTargetController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Target/Hour",
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
 
                     FutureBuilder<List<String>>(
@@ -531,7 +637,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                     const SizedBox(height: 20),
                     ElevatedButton(
                       onPressed: () async {
-                        await NonProductiveDB.resetEntriesTable();
+                        // await NonProductiveDB.resetEntriesTable();
                         if (selectedLine == null ||
                             selectedDepartment == null ||
                             selectedFactor == null) {
@@ -587,9 +693,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           final newEntry = NonProductiveEntry(
                             id: uuid.v4(),
                             lineNo: selectedLine!,
-                            date: DateFormat(
-                              'yyyy-MM-dd',
-                            ).format(DateTime.now()),
+                            date: DateFormat('yyyy-MM-dd').format(entryDate),
                             startTime: selectedStartTime,
                             endTime: selectedEndTime,
                             machine_num:
@@ -599,6 +703,372 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                             totalNP:
                                 (int.tryParse(machineNoController.text) ?? 0) *
                                 durationMinutes,
+                            totalLostPcs:
+                                ((double.tryParse(
+                                          hourlyTargetController.text,
+                                        ) ??
+                                        0) /
+                                    60) *
+                                ((int.tryParse(machineNoController.text) ?? 0) *
+                                    durationMinutes),
+                            machine_code: '',
+                          );
+
+                          await NonProductiveDB.insertEntry(newEntry);
+                          Navigator.pop(context);
+                          loadEntries();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Entry saved successfully'),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error saving entry: $e')),
+                          );
+                        }
+                      },
+                      child: const Text("Save"),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void showAddEntrySheetMB(BuildContext context, {String? qrValue}) {
+    int? selectedLine;
+    String? selectedDepartment;
+    String? selectedFactor;
+    DateTime entryDate = selectedDate;
+    TimeOfDay? startTime;
+    TimeOfDay? endTime;
+    String selectedStartTime = '';
+    String selectedEndTime = '';
+    final machineNoController = TextEditingController(text: '1');
+    final hourlyTargetController = TextEditingController();
+    int? timeDifferenceInMinutes;
+    final int durationMinutes;
+
+    final List<int> userLines =
+        blockOptions
+            .expand<int>((block) => blockLines[block]?.cast<int>() ?? <int>[])
+            .toSet()
+            .toList()
+          ..sort();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                  left: 16,
+                  right: 16,
+                  top: 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Date: ${DateFormat('yyyy-MM-dd').format(entryDate)}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: entryDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setModalState(() {
+                                entryDate = picked;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_today, size: 18),
+                          label: const Text("Change"),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: selectedLine,
+                            items:
+                                userLines.map((line) {
+                                  return DropdownMenuItem<int>(
+                                    value: line,
+                                    child: Text('$line'),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedLine = value);
+                            },
+                            decoration: const InputDecoration(
+                              labelText: "Line No",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: selectedDepartment,
+                            items:
+                                departments.map((dept) {
+                                  return DropdownMenuItem<String>(
+                                    value: dept,
+                                    child: Text(dept),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedDepartment = value);
+                            },
+                            decoration: const InputDecoration(
+                              labelText: "Responsible Department",
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: machineNoController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Number of Machine",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: hourlyTargetController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: "Target/Hour",
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    FutureBuilder<List<String>>(
+                      future: fetchIdleFactorsFromLocalDB(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const CircularProgressIndicator();
+                        }
+                        return DropdownSearch<String>(
+                          items: (filter, _) => snapshot.data!,
+                          selectedItem: selectedFactor,
+                          popupProps: const PopupProps.menu(
+                            showSearchBox: true,
+                          ),
+                          decoratorProps: const DropDownDecoratorProps(
+                            decoration: InputDecoration(labelText: "Factor"),
+                          ),
+                          onChanged: (value) {
+                            setModalState(() => selectedFactor = value);
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Start Time"),
+                            Text(
+                              selectedStartTime.isEmpty
+                                  ? "--:--"
+                                  : selectedStartTime,
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
+                                if (picked != null) {
+                                  setModalState(() {
+                                    startTime = picked;
+                                    selectedStartTime = picked.format(context);
+
+                                    if (startTime != null && endTime != null) {
+                                      final now = DateTime.now();
+                                      final start = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        startTime!.hour,
+                                        startTime!.minute,
+                                      );
+                                      final end = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        endTime!.hour,
+                                        endTime!.minute,
+                                      );
+                                      timeDifferenceInMinutes =
+                                          end.difference(start).inMinutes;
+                                    }
+                                  });
+                                }
+                              },
+                              child: const Text("Pick Start"),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("End Time"),
+                            Text(
+                              selectedEndTime.isEmpty
+                                  ? "--:--"
+                                  : selectedEndTime,
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay.now(),
+                                );
+                                if (picked != null) {
+                                  setModalState(() {
+                                    endTime = picked;
+                                    selectedEndTime = picked.format(context);
+
+                                    if (startTime != null && endTime != null) {
+                                      final now = DateTime.now();
+                                      final start = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        startTime!.hour,
+                                        startTime!.minute,
+                                      );
+                                      final end = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        endTime!.hour,
+                                        endTime!.minute,
+                                      );
+                                      timeDifferenceInMinutes =
+                                          end.difference(start).inMinutes;
+                                    }
+                                  });
+                                }
+                              },
+                              child: const Text("Pick End"),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () async {
+                        // await NonProductiveDB.resetEntriesTable();
+                        if (selectedLine == null ||
+                            selectedDepartment == null ||
+                            selectedFactor == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill all required fields'),
+                            ),
+                          );
+                          return;
+                        }
+                        if (startTime == null || endTime == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select both start and end time',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final now = DateTime.now();
+                        final startDateTime = DateTime(
+                          now.year,
+                          now.month,
+                          now.day,
+                          startTime!.hour,
+                          startTime!.minute,
+                        );
+                        final endDateTime = DateTime(
+                          now.year,
+                          now.month,
+                          now.day,
+                          endTime!.hour,
+                          endTime!.minute,
+                        );
+
+                        final durationMinutes =
+                            endDateTime.difference(startDateTime).inMinutes;
+
+                        if (!startDateTime.isBefore(endDateTime)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Start time must be earlier than end time',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        try {
+                          final newEntry = NonProductiveEntry(
+                            id: uuid.v4(),
+                            lineNo: selectedLine!,
+                            date: DateFormat('yyyy-MM-dd').format(entryDate),
+                            startTime: selectedStartTime,
+                            endTime: selectedEndTime,
+                            machine_num:
+                                int.tryParse(machineNoController.text) ?? 0,
+                            reason: selectedFactor!,
+                            durationMinutes: durationMinutes,
+                            totalNP:
+                                (int.tryParse(machineNoController.text) ?? 0) *
+                                durationMinutes,
+                            totalLostPcs:
+                                ((double.tryParse(
+                                          hourlyTargetController.text,
+                                        ) ??
+                                        0) /
+                                    60) *
+                                ((int.tryParse(machineNoController.text) ?? 0) *
+                                    durationMinutes),
+                            machine_code: qrValue ?? '',
                           );
 
                           await NonProductiveDB.insertEntry(newEntry);
@@ -635,11 +1105,20 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     ).showSnackBar(const SnackBar(content: Text('Entry deleted')));
   }
 
-  void launchQRScanner(BuildContext context) {
-    // TODO: Implement QR scanning logic
-    ScaffoldMessenger.of(
+  void launchQRScanner(BuildContext context) async {
+    final result = await Navigator.push(
       context,
-    ).showSnackBar(const SnackBar(content: Text("QR Scanner launched")));
+      MaterialPageRoute(builder: (_) => const QRScannerPage()),
+    );
+
+    if (result != null && context.mounted) {
+      debugPrint("Scanned: $result");
+
+      // Automatically open the bottom sheet with scanned data
+      Future.delayed(Duration.zero, () {
+        showAddEntrySheetMB(context, qrValue: result);
+      });
+    }
   }
 
   void downloadOTFactors(BuildContext context) async {
@@ -747,6 +1226,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                   'reason': e['reason'],
                   'durationMinutes': e['durationMinutes'],
                   'totalNP': e['totalNP'],
+                  'totalLostPcs': e['totalLostPcs'],
                 },
               )
               .toList();

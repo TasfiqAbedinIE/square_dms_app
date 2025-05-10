@@ -7,7 +7,11 @@ class IEScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Industrial Engineering")),
+      appBar: AppBar(
+        title: const Text("Industrial Engineering"),
+        backgroundColor: const Color.fromARGB(255, 94, 43, 255),
+        foregroundColor: Colors.white,
+      ),
       drawer: AppSideBar(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

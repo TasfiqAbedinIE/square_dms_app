@@ -54,7 +54,11 @@ class _HourlyProductionScreenState extends State<HourlyProductionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_selectedIndex])),
+      appBar: AppBar(
+        title: Text(_titles[_selectedIndex]),
+        backgroundColor: const Color.fromARGB(255, 52, 54, 51),
+        foregroundColor: Colors.white,
+      ),
       body:
           _selectedIndex == 1 && userAuthority == 'GUEST'
               ? const Center(child: Text("Access Denied"))
@@ -62,7 +66,7 @@ class _HourlyProductionScreenState extends State<HourlyProductionScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Color.fromARGB(255, 52, 54, 51),
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Report'),

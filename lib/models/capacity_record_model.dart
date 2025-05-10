@@ -1,5 +1,5 @@
 class CapacityRecord {
-  // final int? id;
+  final int? id;
   final String referenceNumber;
   final int lineNumber;
   final String salesDocument;
@@ -11,7 +11,7 @@ class CapacityRecord {
   final String deptid;
 
   CapacityRecord({
-    // this.id,
+    this.id,
     required this.referenceNumber,
     required this.lineNumber,
     required this.salesDocument,
@@ -25,7 +25,7 @@ class CapacityRecord {
 
   Map<String, dynamic> toMap() {
     return {
-      // 'id': id,
+      'id': id,
       'referenceNumber': referenceNumber,
       'lineNumber': lineNumber,
       'salesDocument': salesDocument,
@@ -49,6 +49,7 @@ class CapacityRecord {
       'layoutTarget': layoutTarget,
       'date': date,
       'deptid': deptid,
+      'id': id,
     };
   }
 
@@ -64,6 +65,7 @@ class CapacityRecord {
       layoutTarget: map['layoutTarget'],
       date: map['date'],
       deptid: map['deptid'],
+      id: map['id'],
     );
   }
 }

@@ -178,6 +178,7 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
                       layoutTarget: int.parse(layoutTargetController.text),
                       date: record.date,
                       deptid: record.deptid,
+                      id: DateTime.now().microsecondsSinceEpoch,
                     );
 
                     final db = await CapacityRecordDatabase.instance.database;
@@ -490,6 +491,8 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Skill Matrix Records"),
+        backgroundColor: const Color.fromARGB(255, 72, 191, 227),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             onPressed: _isSyncing ? null : syncSalesOrdersFromSupabase,
@@ -600,7 +603,7 @@ class _SkillMatrixRecordPageState extends State<SkillMatrixRecordPage> {
               ),
 
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color.fromARGB(255, 94, 43, 255),
+        backgroundColor: const Color.fromARGB(255, 72, 191, 227),
         foregroundColor: Colors.white,
         onPressed: showAddBottomSheet,
         child: const Icon(Icons.add),
