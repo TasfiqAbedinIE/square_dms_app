@@ -8,12 +8,15 @@ import 'package:square_dms_trial/pages/adminScreen.dart';
 import 'package:square_dms_trial/pages/ieScreen.dart';
 import 'package:square_dms_trial/pages/skillMatrixScreen.dart';
 import 'package:square_dms_trial/pages/profileScreen.dart';
+import 'package:square_dms_trial/pages/processVideoScreen.dart';
+
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:square_dms_trial/service/pushnotificationservice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
 // import 'package:square_dms_trial/models/shipment_record.dart';
 
@@ -130,6 +133,7 @@ class _MyAppState extends State<MyApp> {
         '/profile': (context) => ProfileScreen(),
         '/about': (context) => AboutScreen(),
         '/nonProductive': (context) => NonProductiveTimeScreen(),
+        '/processVideo': (context) => VideoViewerScreen(),
       },
     );
   }

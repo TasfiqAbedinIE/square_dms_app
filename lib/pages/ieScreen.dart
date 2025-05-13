@@ -20,7 +20,7 @@ class IEScreen extends StatelessWidget {
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           children: [
-            _buildCard(context, "Efficiency", Icons.show_chart, "/efficiency"),
+            // _buildCard(context, "Efficiency", Icons.show_chart, "/efficiency"),
             _buildCard(
               context,
               "Production",
@@ -39,8 +39,13 @@ class IEScreen extends StatelessWidget {
               Icons.timelapse,
               "/nonProductive",
             ),
-            _buildCard(context, "Target", Icons.track_changes, "/target"),
-            _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
+            _buildCard(
+              context,
+              "Process Video",
+              Icons.video_camera_back,
+              "/processVideo",
+            ),
+            // _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
           ],
         ),
       ),
