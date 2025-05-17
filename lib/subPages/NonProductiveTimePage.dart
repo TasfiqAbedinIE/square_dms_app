@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart';
 import 'package:square_dms_trial/service/qr_scanner_page.dart';
+import 'package:square_dms_trial/subPages/NonProductiveTimeReportPage.dart';
 
 class NonProductiveTimeScreen extends StatefulWidget {
   const NonProductiveTimeScreen({super.key});
@@ -28,6 +29,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   List<String> blockOptions = [];
   bool isMasterUser = false;
   final uuid = Uuid();
+  String userID = '';
 
   final Map<String, List<int>> blockLines = {
     '1-6': [1, 2, 3, 4, 5, 6],
@@ -67,6 +69,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     super.initState();
     loadEntries();
     _fetchUserWorkingArea();
+    loadUserInfo();
   }
 
   Future<void> loadEntries() async {
@@ -146,6 +149,14 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Future<void> loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userID = prefs.getString('userID') ?? '';
+      // authority = prefs.getString('authority') ?? '';
+    });
   }
 
   void _initControllers(String block) {
@@ -353,6 +364,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                 machineCount *
                                 durationMinutes,
                             machine_code: entry.machine_code,
+                            deptid: userID,
                           );
 
                           await NonProductiveDB.updateEntry(updated);
@@ -712,6 +724,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                 ((int.tryParse(machineNoController.text) ?? 0) *
                                     durationMinutes),
                             machine_code: '',
+                            deptid: userID,
                           );
 
                           await NonProductiveDB.insertEntry(newEntry);
@@ -1069,6 +1082,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                 ((int.tryParse(machineNoController.text) ?? 0) *
                                     durationMinutes),
                             machine_code: qrValue ?? '',
+                            deptid: userID,
                           );
 
                           await NonProductiveDB.insertEntry(newEntry);
@@ -1227,6 +1241,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                   'durationMinutes': e['durationMinutes'],
                   'totalNP': e['totalNP'],
                   'totalLostPcs': e['totalLostPcs'],
+                  'deptid': e['deptid'],
                 },
               )
               .toList();
@@ -1253,6 +1268,8 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 255, 179, 193),
+        foregroundColor: Colors.black,
         title: const Text("Non-Productive Time"),
         actions: [
           IconButton(
@@ -1269,6 +1286,16 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
             onPressed: () {
               // Download OT factors
               downloadOTFactors(context); // ← define this method
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Lost Time Report',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LostTimeReportPage()),
+              );
             },
           ),
         ],
@@ -1317,6 +1344,9 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                 ),
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    foregroundColor: Colors.black,
+                  ),
                   onPressed: () {
                     uploadToCloudForDate(
                       context,
@@ -1408,6 +1438,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
       ),
 
       floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color.fromARGB(255, 255, 179, 193),
         onPressed: () => showAddEntrySheet(context),
         child: const Icon(Icons.add),
       ),

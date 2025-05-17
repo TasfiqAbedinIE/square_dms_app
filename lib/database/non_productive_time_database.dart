@@ -20,7 +20,8 @@ class NonProductiveDB {
             durationMinutes int,
             totalNP int,
             totalLostPcs DOUBLE,
-            machine_code TEXT
+            machine_code TEXT,
+            deptid TEXT
           )
         ''');
       },
@@ -30,7 +31,7 @@ class NonProductiveDB {
 
   static Future<void> insertEntry(NonProductiveEntry entry) async {
     final db = await _openDB();
-    // db.execute('''ALTER TABLE entries ADD COLUMN machine_code TEXT''');
+    // db.execute('''ALTER TABLE entries ADD COLUMN deptid TEXT''');
     await db.insert(
       'entries',
       entry.toMap(),
@@ -54,7 +55,7 @@ class NonProductiveDB {
 
   static Future<void> resetEntriesTable() async {
     final db = await _openDB();
-    await db.execute('DROP TABLE IF EXISTS entries');
+    // await db.execute('DROP TABLE IF EXISTS entries');
     await db.execute('''
     CREATE TABLE entries(
       id TEXT PRIMARY KEY,
@@ -67,7 +68,8 @@ class NonProductiveDB {
       durationMinutes INTEGER,
       totalNP INTEGER,
       totalLostPcs DOUBLE,
-      machine_code TEXT
+      machine_code TEXT,
+      deptid TEXT
     )
   ''');
   }

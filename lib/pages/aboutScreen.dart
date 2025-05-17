@@ -28,13 +28,12 @@ class _AboutScreenState extends State<AboutScreen> {
     'Skill Matrix Management',
     'Time Study Module',
     'Push Notifications',
+    'Non-Productive Time Tracking',
+    'Standard Process Video',
   ];
 
   static const List<Map<String, String>> upcomingTimeline = [
-    {
-      'date': 'May 2025',
-      'description': 'Non-Prod Time Tracking, Cutting Excess Booking Record',
-    },
+    {'date': 'May 2025', 'description': 'Cutting Excess Booking Record'},
     {'date': 'June 2025', 'description': 'Efficiency Report Generation'},
     {'date': 'July 2025', 'description': 'RAG-Powered Q&A'},
     {'date': 'Aug 2025', 'description': 'KPI initialization'},
