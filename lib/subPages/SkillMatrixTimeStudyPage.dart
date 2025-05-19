@@ -17,7 +17,9 @@ class SkillMatrixTimeStudyPage extends StatefulWidget {
 }
 
 class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
-  final TextEditingController operatorController = TextEditingController();
+  final TextEditingController operatorController = TextEditingController(
+    text: '330',
+  );
 
   List<SewingProcess> allProcesses = [];
   List<String> processNames = [];
@@ -151,7 +153,10 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
       return;
     }
 
-    final processName = "$selectedProcess + $selectedSubProcess";
+    final String processName =
+        (selectedSubProcess != null && selectedSubProcess!.isNotEmpty)
+            ? '$selectedProcess + $selectedSubProcess'
+            : '$selectedProcess';
 
     final operatorIdTrimmed = operatorController.text.trim();
     final db = await CapacityRecordDatabase.instance.database;

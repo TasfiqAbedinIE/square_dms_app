@@ -26,6 +26,7 @@ class _AboutScreenState extends State<AboutScreen> {
     'Production Dashboard',
     'Capacity Record Entry',
     'Skill Matrix Management',
+    'Skill Matrix Report',
     'Time Study Module',
     'Push Notifications',
     'Non-Productive Time Tracking',

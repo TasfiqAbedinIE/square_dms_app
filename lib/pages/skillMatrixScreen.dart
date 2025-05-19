@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:square_dms_trial/subPages/SkillMatrixRecordPage.dart';
+import 'package:square_dms_trial/subPages/SkillMatrixReportPage.dart';
 
 class SkillMatrixScreen extends StatefulWidget {
   const SkillMatrixScreen({super.key});
@@ -13,7 +14,7 @@ class _SkillMatrixScreenState extends State<SkillMatrixScreen> {
 
   final List<Widget> _pages = [
     SkillMatrixRecordPage(),
-    const Center(child: Text("Skill Matrix Report Page")),
+    SkillMatrixReportPage(),
   ];
 
   // final List<String> _titles = ["Capacity Record", "Skill Matrix Report"];

@@ -18,13 +18,6 @@ import 'package:square_dms_trial/service/pushnotificationservice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
-// import 'package:square_dms_trial/models/shipment_record.dart';
-
-// import 'package:hive_ce/hive.dart';
-// import 'package:hive_ce_flutter/hive_flutter.dart';
-// import 'package:path_provider/path_provider.dart';
-
-// import 'package:firebase_messaging/firebase_messaging.dart';
 
 const supabaseUrl = 'https://xwmfquxefxkswpslzxhq.supabase.co';
 const supabaseAnonKey =
@@ -55,12 +48,6 @@ void main() async {
 
   final token = await messaging.getToken();
   print('📱 Device Token: $token');
-
-  // HIVE working
-  // final appDocumentDir = await getApplicationDocumentsDirectory();
-  // Hive.init(appDocumentDir.path);
-  // Hive.registerAdapter(ShipmentRecordAdapter());
-  // await Hive.openBox<ShipmentRecord>('shipmentBox');
 
   runApp(MyApp(isLoggedIn: isLoggedIn));
 }
