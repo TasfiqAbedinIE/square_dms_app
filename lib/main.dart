@@ -9,6 +9,7 @@ import 'package:square_dms_trial/pages/ieScreen.dart';
 import 'package:square_dms_trial/pages/skillMatrixScreen.dart';
 import 'package:square_dms_trial/pages/profileScreen.dart';
 import 'package:square_dms_trial/pages/processVideoScreen.dart';
+import 'package:square_dms_trial/pages/manpowerOptScreen.dart';
 
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
@@ -121,6 +122,7 @@ class _MyAppState extends State<MyApp> {
         '/about': (context) => AboutScreen(),
         '/nonProductive': (context) => NonProductiveTimeScreen(),
         '/processVideo': (context) => VideoViewerScreen(),
+        '/manpowerOpt': (context) => ManpowerOptimizationScreen(),
       },
     );
   }

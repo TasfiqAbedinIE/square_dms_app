@@ -41,6 +41,12 @@ class IEScreen extends StatelessWidget {
             ),
             _buildCard(
               context,
+              "Manpower Optimization",
+              Icons.video_camera_back,
+              "/manpowerOpt",
+            ),
+            _buildCard(
+              context,
               "Process Video",
               Icons.video_camera_back,
               "/processVideo",

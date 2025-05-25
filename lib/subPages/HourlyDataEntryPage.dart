@@ -180,7 +180,8 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
         final target = int.tryParse(targetControllers[line]?.text ?? '') ?? 0;
         final remarks = remarksControllers[line]?.text ?? '';
 
-        if (productionQty == 0 && target == 0 && remarks.isEmpty) {
+        if (productionQty == 0 || target == 0) {
+          debugPrint('Skipping Line $line - Production or Target is missing.');
           continue;
         }
 
@@ -208,6 +209,14 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
           'target': target,
           'remarks': remarks,
         });
+
+        // 🔁 Update target in existing records with same date & line but different hour
+        await client
+            .from('Hourly_Production')
+            .update({'target': target})
+            .eq('date', todayDate)
+            .eq('line', line)
+            .neq('hour', currentHourFormatted);
 
         uploadedCount++;
       }
