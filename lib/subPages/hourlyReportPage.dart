@@ -39,6 +39,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<int, List<Map<String, dynamic>>> lineData = {};
   bool isLoading = false;
 
+  // Step 1: Fixed range of hours (you can adjust as needed)
+  final expectedHours = List.generate(11, (i) => i + 8); // [8, 9, ..., 18]
+
   @override
   void initState() {
     super.initState();
@@ -110,26 +113,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
               height: 200,
               child: BarChart(
                 BarChartData(
-                  barGroups:
-                      records.map((record) {
-                        final hourStr = record['hour'] ?? '00:00:00';
-                        final hour = int.tryParse(hourStr.split(':')[0]) ?? 0;
-                        final prod = (record['production_qty'] ?? 0) as num;
-                        final target = (record['target'] ?? 0) as num;
+                  barGroups: () {
+                    final expectedHours = List.generate(
+                      11,
+                      (i) => i + 8,
+                    ); // 8 to 18
 
-                        return BarChartGroupData(
-                          x: hour,
-                          barRods: [
-                            BarChartRodData(
-                              toY: prod.toDouble(),
-                              color: prod >= target ? Colors.green : Colors.red,
-                              borderRadius: BorderRadius.circular(4),
-                              width: 14,
-                            ),
-                          ],
-                          showingTooltipIndicators: [],
-                        );
-                      }).toList(),
+                    // Map existing records by hour
+                    final recordMap = {
+                      for (var r in records)
+                        int.tryParse((r['hour'] ?? '00:00').split(':')[0]) ?? 0:
+                            r,
+                    };
+
+                    return expectedHours.map((hour) {
+                      final record =
+                          recordMap[hour] ??
+                          {
+                            'hour': '${hour.toString().padLeft(2, '0')}:00',
+                            'production_qty': 0,
+                            'target': 0,
+                            'remarks': '',
+                          };
+
+                      final prod = (record['production_qty'] ?? 0) as num;
+                      final target = (record['target'] ?? 0) as num;
+
+                      return BarChartGroupData(
+                        x: hour,
+                        barRods: [
+                          BarChartRodData(
+                            toY: prod.toDouble(),
+                            color:
+                                recordMap.containsKey(hour)
+                                    ? (prod >= target
+                                        ? Colors.green
+                                        : Colors.red)
+                                    : Colors.grey, // gray if no data
+                            borderRadius: BorderRadius.circular(4),
+                            width: 14,
+                          ),
+                        ],
+                        showingTooltipIndicators: [
+                          0,
+                        ], // changed it show tooltip
+                      );
+                    }).toList();
+                  }(),
 
                   titlesData: FlTitlesData(
                     bottomTitles: AxisTitles(
@@ -173,7 +203,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   gridData: FlGridData(show: true),
                   borderData: FlBorderData(show: false),
 
+                  // barTouchData: BarTouchData(
+                  //   touchCallback: (event, response) {
+                  //     if (event is FlTapUpEvent &&
+                  //         response != null &&
+                  //         response.spot != null) {
+                  //       final x = response.spot!.touchedBarGroup.x;
+                  //       final hourKey = '${x.toString().padLeft(2, '0')}:00:00';
+
+                  //       final record = records.firstWhere(
+                  //         (r) =>
+                  //             (r['hour'] ?? '').toString().startsWith(hourKey),
+                  //         orElse: () => {'remarks': 'No remarks'},
+                  //       );
+
+                  //       final remarks = record['remarks'] ?? 'No remarks';
+
+                  //       showDialog(
+                  //         context: context,
+                  //         builder:
+                  //             (context) => AlertDialog(
+                  //               title: Text('Remarks for $hourKey'),
+                  //               content: Text(remarks.toString()),
+                  //               actions: [
+                  //                 TextButton(
+                  //                   onPressed:
+                  //                       () => Navigator.of(context).pop(),
+                  //                   child: const Text('Close'),
+                  //                 ),
+                  //               ],
+                  //             ),
+                  //       );
+                  //     }
+                  //   },
+                  //   touchTooltipData: BarTouchTooltipData(
+                  //     tooltipPadding: EdgeInsets.zero,
+                  //     tooltipMargin: 0,
+                  //     getTooltipItem:
+                  //         (_, __, ___, ____) => null, // disables tooltip
+                  //   ),
+                  // ),
                   barTouchData: BarTouchData(
+                    // enabled: false, // disables touch interaction
                     touchCallback: (event, response) {
                       if (event is FlTapUpEvent &&
                           response != null &&
@@ -206,12 +277,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         );
                       }
                     },
+
+                    // Section to show bar tooltip
                     touchTooltipData: BarTouchTooltipData(
-                      tooltipPadding: EdgeInsets.zero,
+                      getTooltipColor: (group) => Colors.transparent,
+                      // getTooltipColor: (touchedSpot) => _getColor(interval, value),
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      tooltipPadding: const EdgeInsets.all(0),
                       tooltipMargin: 0,
-                      getTooltipItem:
-                          (_, __, ___, ____) => null, // disables tooltip
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          rod.toY.toStringAsFixed(0), // value label
+                          const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                          // Optional: offset the label higher
+                          textAlign: TextAlign.center,
+                        );
+                      },
                     ),
+                    // touchTooltipThreshold: 999, // always shows tooltips
                   ),
                 ),
               ),

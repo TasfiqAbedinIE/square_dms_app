@@ -108,7 +108,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SQUARE DMS',
-      theme: ThemeData(fontFamily: GoogleFonts.lexend().fontFamily),
+      theme: ThemeData(fontFamily: 'ShareTech'),
       scaffoldMessengerKey: _messengerKey,
       initialRoute: widget.isLoggedIn ? '/home' : '/login',
       routes: {

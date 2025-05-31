@@ -39,12 +39,12 @@ class IEScreen extends StatelessWidget {
               Icons.timelapse,
               "/nonProductive",
             ),
-            _buildCard(
-              context,
-              "Manpower Optimization",
-              Icons.video_camera_back,
-              "/manpowerOpt",
-            ),
+            // _buildCard(
+            //   context,
+            //   "Manpower Optimization",
+            //   Icons.people,
+            //   "/manpowerOpt",
+            // ),
             _buildCard(
               context,
               "Process Video",

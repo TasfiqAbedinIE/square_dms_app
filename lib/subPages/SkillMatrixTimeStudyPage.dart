@@ -161,23 +161,23 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
     final operatorIdTrimmed = operatorController.text.trim();
     final db = await CapacityRecordDatabase.instance.database;
 
-    final existing = await db.query(
-      'skillMatrixRecords',
-      where: 'referenceNumber = ? AND operatorID = ?',
-      whereArgs: [widget.record.referenceNumber, operatorIdTrimmed],
-    );
+    // final existing = await db.query(
+    //   'skillMatrixRecords',
+    //   where: 'referenceNumber = ? AND operatorID = ?',
+    //   whereArgs: [widget.record.referenceNumber, operatorIdTrimmed],
+    // );
 
-    if (existing.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "This Operator ID is already recorded for this reference.",
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    // if (existing.isNotEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text(
+    //         "This Operator ID is already recorded for this reference.",
+    //       ),
+    //       backgroundColor: Colors.orange,
+    //     ),
+    //   );
+    //   return;
+    // }
 
     final prefs = await SharedPreferences.getInstance();
     final isuserID = prefs.getString('userID') ?? '';
@@ -246,6 +246,14 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
                           .toSet()
                           .toList();
                   selectedMachine = null;
+
+                  forms =
+                      allProcesses
+                          .where((e) => e.processName == value)
+                          .map((e) => e.form)
+                          .toSet()
+                          .toList();
+                  selectedForm = null;
                 });
               },
             ),
@@ -291,16 +299,7 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
                       decoration: InputDecoration(labelText: "SubProcess"),
                     ),
                     onChanged: (value) {
-                      setState(() {
-                        selectedSubProcess = value;
-                        forms =
-                            allProcesses
-                                .where((e) => e.processName == value)
-                                .map((e) => e.form)
-                                .toSet()
-                                .toList();
-                        selectedForm = null;
-                      });
+                      setState(() => selectedSubProcess = value);
                     },
                   ),
                 ),

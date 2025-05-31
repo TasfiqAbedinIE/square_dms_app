@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 import 'package:intl/intl.dart';
 import 'package:square_dms_trial/sidebar/side_bar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:square_dms_trial/models/sewing_production_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -11,28 +11,288 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  String selectedDepartment = 'Sewing';
   DateTimeRange? dashboardDateRange;
-  DateTimeRange? shipmentDateRange;
-  DateTimeRange? overtimeDateRange;
+  bool isLoading = false;
+  Map<String, dynamic> summary = {};
+  List<FlSpot> _productionTrendSpots = [];
+  List<String> _trendLabels = [];
 
+  final numberFormatter = NumberFormat('#,##0');
+
+  // ------------------ Motivational Quote Banner ---------------------
+  final Map<String, String> motivationalQuotes = {
+    'success.png':
+        'Success is not the key to happiness. Happiness is the key to success.',
+    'focus.png': 'Focus on being productive instead of busy.',
+    'fire.png': 'Keep going, You are on fire.',
+    'believe.png': 'Believe you can and you are halfway there.',
+    'stronger.png': 'You are stronger than you think.',
+    'proud.png': "Don't stop until you are proud.",
+    'begining.png': 'The best time for new beginnings is now.',
+    'clock.png': "Don't watch the clock; do what it does. Keep going.",
+    'running.png': "Don't stop when you are tired, STOP WHEN YOU ARE DONE.",
+    'treem.png': "THE FUTURE DEPENDS ON WHAT YOU DO TODAY.",
+    'stairs.png':
+        "Success is sum of small efforts, repeated day in and day out.",
+  };
+
+  late final MapEntry<String, String> selectedQuote = getRandomQuote(
+    motivationalQuotes,
+  );
+
+  MapEntry<String, String> getRandomQuote(Map<String, String> quotes) {
+    final keys = quotes.keys.toList();
+    final randomKey = keys[Random().nextInt(keys.length)];
+    return MapEntry(randomKey, quotes[randomKey]!);
+  }
+
+  Widget motivationalBanner(MapEntry<String, String> quoteEntry) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            Colors.blueAccent,
+            Colors.cyanAccent,
+            const Color.fromARGB(255, 194, 255, 125),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.3),
+            blurRadius: 12,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.asset(
+              // 'assets/images/stairs.png',
+              'assets/images/${quoteEntry.key}',
+              width: 70,
+              height: 70,
+              fit: BoxFit.cover,
+            ),
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              quoteEntry.value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+                shadows: [Shadow(color: Colors.black12, blurRadius: 3)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------- PRODUCTION DATA FETCH HELPERS --------------------
+
+  Future<DateTime?> fetchLatestProductionDate() async {
+    final List<dynamic> result = await Supabase.instance.client
+        .from('sewing_production_data')
+        .select('date')
+        .order('date', ascending: false)
+        .limit(1);
+
+    if (result.isNotEmpty && result[0]['date'] != null) {
+      return DateTime.parse(result[0]['date']);
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> fetchProductionSummary(
+    DateTimeRange range,
+  ) async {
+    final String start = range.start.toIso8601String().split('T')[0];
+    final String end = range.end.toIso8601String().split('T')[0];
+
+    final List<Map<String, dynamic>> data = await Supabase.instance.client
+        .from('sewing_production_data')
+        .select()
+        .gte('date', start)
+        .lte('date', end);
+
+    int totalProduction = 0;
+    double totalTarget = 0;
+    double availableMinutes = 0;
+    double earnedMinutes = 0;
+    double totalSMV = 0;
+    int totalManpower = 0;
+    int dayCount = data.length;
+
+    for (final row in data) {
+      final without = row['without'] as int? ?? 0;
+      final production = row['production'] as int? ?? 0;
+      final rejection = row['rejection'] as int? ?? 0;
+      final due = row['due'] as int? ?? 0;
+      final target10 = (row['target10'] as num?)?.toDouble() ?? 0;
+      final hourMinusTNC = (row['hourMinusTNC'] as num?)?.toDouble() ?? 0;
+      final hourTNC = (row['hourTNC'] as num?)?.toDouble() ?? 0;
+      final hour = (row['hour'] as num?)?.toDouble() ?? 0;
+      final manpower = row['manpower'] as int? ?? 0;
+      final smv = (row['SMV'] as num?)?.toDouble() ?? 0;
+
+      final thisProduction = without + production + rejection - due;
+      final thisTarget = (target10 / 10.0) * hourMinusTNC;
+      final thisAvailableMin = (hourTNC / 10.0) * hour * manpower * 60;
+
+      totalProduction += thisProduction;
+      totalTarget += thisTarget;
+      availableMinutes += thisAvailableMin;
+      earnedMinutes += thisProduction * smv;
+      totalSMV += smv;
+      totalManpower += manpower;
+    }
+
+    final achievement =
+        totalTarget > 0 ? (totalProduction / totalTarget * 100) : 0;
+    final efficiency =
+        availableMinutes > 0 ? (earnedMinutes / availableMinutes * 100) : 0;
+    final avgSMV = totalProduction > 0 ? (earnedMinutes / totalProduction) : 0;
+    final avgManpower = dayCount > 0 ? (totalManpower / dayCount).round() : 0;
+
+    return {
+      'Production': totalProduction,
+      'Target': totalTarget.toInt(),
+      'Achievement %': achievement.toInt(),
+      'Manpower': avgManpower,
+      'Avg. SMV': avgSMV,
+      'Efficiency %': efficiency.toInt(),
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> fetchProductionTrend({
+    DateTimeRange? range,
+    int? days,
+  }) async {
+    // If a range is given, use it; otherwise, use the last `days` days.
+    DateTime endDate, startDate;
+    if (range != null) {
+      startDate = range.start;
+      endDate = range.end;
+    } else if (days != null) {
+      endDate = DateTime.now();
+      startDate = endDate.subtract(Duration(days: days));
+    } else {
+      // Default to last 30 days
+      endDate = DateTime.now();
+      startDate = endDate.subtract(Duration(days: 30));
+    }
+
+    final startStr = startDate.toIso8601String().split('T')[0];
+    final endStr = endDate.toIso8601String().split('T')[0];
+
+    final List<Map<String, dynamic>> data = await Supabase.instance.client
+        .from('sewing_production_data')
+        .select('date, production')
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+    // Group by date
+    final Map<String, int> grouped = {};
+    for (final row in data) {
+      final day = (row['date'] as String).split('T')[0];
+      final prod = (row['production'] ?? 0) as int;
+      grouped[day] = (grouped[day] ?? 0) + prod;
+    }
+
+    // Sort days
+    final daysList = grouped.keys.toList()..sort();
+    return [
+      for (final day in daysList)
+        {'day': day, 'totalProduction': grouped[day] ?? 0},
+    ];
+  }
+
+  // ----------- LOAD/UPDATE FUNCTIONS -------------
+
+  Future<void> loadInitialDashboard() async {
+    setState(() => isLoading = true);
+    final latestDate = await fetchLatestProductionDate();
+    if (latestDate == null) {
+      setState(() => isLoading = false);
+      return;
+    }
+    dashboardDateRange = DateTimeRange(start: latestDate, end: latestDate);
+    await loadProductionSummary();
+    await loadProductionTrend();
+    setState(() => isLoading = false);
+  }
+
+  Future<void> loadProductionSummary() async {
+    if (dashboardDateRange == null) return;
+    setState(() => isLoading = true);
+    summary = await fetchProductionSummary(dashboardDateRange!);
+    setState(() => isLoading = false);
+  }
+
+  Future<void> loadProductionTrend() async {
+    // If dashboardDateRange is null or single-day, default to last 30 days
+    if (dashboardDateRange == null ||
+        dashboardDateRange!.start == dashboardDateRange!.end) {
+      final trendData = await fetchProductionTrend(days: 30);
+      setState(() {
+        _productionTrendSpots = [];
+        _trendLabels = [];
+        for (int i = 0; i < trendData.length; i++) {
+          final item = trendData[i];
+          final prod = (item['totalProduction'] as num?)?.toDouble() ?? 0;
+          _productionTrendSpots.add(FlSpot(i.toDouble(), prod));
+          _trendLabels.add(item['day'] as String);
+        }
+      });
+    } else {
+      final trendData = await fetchProductionTrend(range: dashboardDateRange!);
+      setState(() {
+        _productionTrendSpots = [];
+        _trendLabels = [];
+        for (int i = 0; i < trendData.length; i++) {
+          final item = trendData[i];
+          final prod = (item['totalProduction'] as num?)?.toDouble() ?? 0;
+          _productionTrendSpots.add(FlSpot(i.toDouble(), prod));
+          _trendLabels.add(item['day'] as String);
+        }
+      });
+    }
+  }
+
+  Future<void> _selectDashboardDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: dashboardDateRange,
+    );
+    if (picked != null) {
+      setState(() {
+        dashboardDateRange = picked;
+      });
+      await loadProductionSummary();
+      await loadProductionTrend();
+    }
+  }
+
+  // Shipment Data Analysis Section ----------------->
   int totalShippedQty = 0;
   int totalExcessQty = 0;
   int totalShortQty = 0;
   List<MapEntry<String, int>> topBuyers = [];
+  DateTimeRange? shipmentDateRange;
 
-  bool isLoading = false;
-  Map<String, dynamic> summary = {};
-  final numberFormatter = NumberFormat('#,##0');
-
-  final List<String> departments = [
-    'Cutting',
-    'Printing',
-    'Embroidery',
-    'Sewing',
-  ];
-
-  // Shipment Data Analysis Section ----------------->
   List<Map<String, dynamic>> get shipmentStatusData => [
     {
       'title': 'Total Shipment',
@@ -136,6 +396,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Shipment Date Range Selection
+  Future<DateTime?> getLatestShipmentDate() async {
+    final response =
+        await Supabase.instance.client
+            .from('shipment_data')
+            .select('Date')
+            .order('Date', ascending: false)
+            .limit(1)
+            .maybeSingle();
+
+    if (response != null && response['Date'] != null) {
+      // Parse Supabase date string, e.g. "2025-05-28 00:00:00+00"
+      return DateTime.parse(response['Date']);
+    }
+    return null;
+  }
+
   Future<void> _selectShipmentDateRange() async {
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
@@ -150,364 +426,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await loadShipmentStats(); // reload stats on date change
     }
   }
-
-  // XXXXXXX----------------------------------XXXXXXX
-
-  // Overtime Data Analysis Section -------------------->
-  final List<Map<String, dynamic>> overtimeData = [
-    {'x': 0, 'dept': 'Cutting', 'y': 120, 'color': Colors.blue},
-    {'x': 1, 'dept': 'Printing', 'y': 80, 'color': Colors.green},
-    {'x': 2, 'dept': 'Embroidery', 'y': 150, 'color': Colors.orange},
-    {'x': 3, 'dept': 'Sewing', 'y': 300, 'color': Colors.redAccent},
-  ];
-
-  // Over time date selection section
-  Future<void> _selectOvertimeDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDateRange:
-          overtimeDateRange ??
-          DateTimeRange(
-            start: DateTime.now().subtract(Duration(days: 7)),
-            end: DateTime.now(),
-          ),
-    );
-    if (picked != null) {
-      setState(() {
-        overtimeDateRange = picked;
-      });
-    }
-  }
-
-  // XXXXXXX----------------------------------XXXXXXX
-
-  Future<void> _selectDashboardDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      initialDateRange:
-          dashboardDateRange ??
-          DateTimeRange(
-            start: DateTime.now().subtract(Duration(days: 7)),
-            end: DateTime.now(),
-          ),
-    );
-    if (picked != null) {
-      setState(() {
-        dashboardDateRange = picked;
-      });
-      await loadProductionSummary();
-    }
-  }
-
-  // Sewing Production Data analysis ------------------->
-  List<Map<String, dynamic>> productionStatusDatabase = [];
-
-  // Load production summary from SQLITE database
-  Future<void> loadProductionSummary() async {
-    if (dashboardDateRange == null) return;
-    setState(() => isLoading = true);
-
-    // Fetch summary from the database for the selected date range
-    final result = await SewingDatabaseService.getProductionSummary(
-      dashboardDateRange!,
-    );
-
-    setState(() {
-      summary = result; // <-- this will populate your _buildCard calls
-      isLoading = false;
-    });
-  }
-
-  // Download data from supabase
-  Future<void> downloadData() async {
-    setState(() => isLoading = true);
-    // await SewingDatabaseService.syncFromSupabaseForRange();
-    await loadProductionSummary();
-    await loadProductionTrend();
-  }
-
-  // Date picker for production data
-  Future<void> pickDateRange() async {
-    final range = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: dashboardDateRange,
-    );
-    if (range != null) {
-      setState(() => dashboardDateRange = range);
-      await loadProductionSummary();
-      await loadProductionTrend();
-    }
-  }
-
-  // Building card to show production data
-  Widget _buildCard(String title, dynamic value, Color color, IconData icon) {
-    final formattedValue =
-        value is num ? numberFormatter.format(value) : value.toString();
-
-    return Container(
-      width: 160,
-      margin: EdgeInsets.only(right: 12),
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.white, size: 32),
-          SizedBox(height: 10),
-          Text(
-            title,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 6),
-          Text(
-            formattedValue,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<FlSpot> _productionTrendSpots = [];
-  List<String> _trendLabels = [];
-
-  Future<void> loadProductionTrend() async {
-    final trendData = await SewingDatabaseService.getProductionTrend(days: 15);
-    setState(() {
-      _productionTrendSpots = [];
-      _trendLabels = [];
-      for (int i = 0; i < trendData.length; i++) {
-        final item = trendData[i];
-        final prod = (item['totalProduction'] as num?)?.toDouble() ?? 0;
-        _productionTrendSpots.add(FlSpot(i.toDouble(), prod));
-        _trendLabels.add(item['day'] as String);
-      }
-    });
-  }
-
-  // Main inti function [[[[[[Very Important]]]]]] ---------->>>
-  @override
-  void initState() {
-    super.initState();
-
-    final now = DateTime.now();
-    shipmentDateRange = DateTimeRange(
-      start: DateTime(now.year, now.month, 1),
-      end: now,
-    );
-
-    dashboardDateRange = DateTimeRange(
-      start: DateTime(DateTime.now().year, DateTime.now().month, 1),
-      end: DateTime.now(),
-    );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // await SewingDatabaseService.syncFromSupabaseForRange();
-      await loadProductionSummary();
-      await loadProductionTrend();
-      await loadShipmentStats(); // also make this async if needed
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'DASHBOARD',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
-      ),
-      drawer: AppSideBar(),
-      backgroundColor: Colors.grey.shade100,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: loadProductionSummary,
-          child: SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "SEWING PRODUCTION",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      IconButton(
-                        onPressed: _selectDashboardDateRange,
-                        icon: Icon(
-                          Icons.calendar_today,
-                          color: Colors.blueAccent,
-                          size: 28,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      IconButton(
-                        onPressed: () async {
-                          if (dashboardDateRange == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Please select a date range first.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          setState(() => isLoading = true);
-
-                          await SewingDatabaseService.syncFromSupabaseForRange(
-                            dashboardDateRange!,
-                          );
-                          await loadProductionSummary();
-
-                          setState(() => isLoading = false);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Sync completed for selected range.',
-                              ),
-                            ),
-                          );
-                        },
-                        icon: Icon(
-                          Icons.download,
-                          color: Colors.blueAccent,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 18),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildCard(
-                        "Production",
-                        summary['Production'],
-                        Colors.blue,
-                        Icons.factory,
-                      ),
-                      _buildCard(
-                        "Target",
-                        summary['Target'],
-                        Colors.green,
-                        Icons.flag,
-                      ),
-                      _buildCard(
-                        "Achievement %",
-                        summary['Achievement %'],
-                        Colors.orange,
-                        Icons.percent,
-                      ),
-                      // _buildCard(
-                      //   "Manpower",
-                      //   summary['Manpower'],
-                      //   Colors.purple,
-                      //   Icons.group,
-                      // ),
-                      _buildCard(
-                        "Efficiency %",
-                        summary['Efficiency %'],
-                        Colors.teal,
-                        Icons.speed,
-                      ),
-                      _buildCard(
-                        "Avg. SMV",
-                        summary['Avg. SMV'] == null
-                            ? '-'
-                            : (summary['Avg. SMV'] is num
-                                ? summary['Avg. SMV'].toStringAsFixed(2)
-                                : summary['Avg. SMV'].toString()),
-                        Colors.cyan,
-                        Icons.timer,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ---------------------------------->
-                // sectionTitle('Production Status'),
-                // horizontalCards(productionStatusDatabase),
-                sectionTitle('PRODUCTION TREND'),
-                lineChartWidget(),
-
-                // ---------------------------------->
-                sectionTitleWithIcon(
-                  'SHIPMENT STATUS',
-                  _selectShipmentDateRange,
-                ),
-                horizontalCards(shipmentStatusData),
-                sectionTitle('Top 5 Buyer Shipment'),
-                buyerBarChartWidget(),
-
-                // sectionTitleWithIcon(
-                //   'Overtime Analysis',
-                //   _selectOvertimeDateRange,
-                // ),
-                // overtimeBarChartWidget(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget sectionTitle(String title) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 20.0),
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-      ),
-    ),
-  );
 
   Widget sectionTitleWithIcon(String title, Function() onTap) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 20.0),
@@ -524,14 +442,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         IconButton(
           onPressed: onTap,
-          icon: Icon(Icons.calendar_today, color: Colors.blueAccent, size: 28),
+          icon: Icon(
+            Icons.calendar_today,
+            color: const Color.fromARGB(255, 53, 144, 243),
+            size: 28,
+          ),
         ),
       ],
     ),
   );
 
   Widget horizontalCards(List<Map<String, dynamic>> data) => Container(
-    height: 150,
+    height: 130,
     child: ListView.builder(
       scrollDirection: Axis.horizontal,
       physics: BouncingScrollPhysics(),
@@ -581,128 +503,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   );
 
-  Widget lineChartWidget() => Container(
-    height: 280,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      // boxShadow: [
-      //   BoxShadow(
-      //     color: Colors.blueAccent.withAlpha(30),
-      //     blurRadius: 10,
-      //     spreadRadius: 3,
-      //   ),
-      // ],
-    ),
-    child:
-        _productionTrendSpots.isEmpty
-            ? Center(child: Text("No trend data"))
-            : LineChart(
-              LineChartData(
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: _productionTrendSpots,
-                    isCurved: true,
-                    barWidth: 4,
-                    color: Colors.blueAccent,
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.blueAccent.withOpacity(0.2),
-                          Colors.blueAccent.withOpacity(0.01),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                    dotData: FlDotData(show: true),
-                  ),
-                ],
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval:
-                          9, // Show every 5th date for clarity (adjust as needed)
-                      getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
-                        if (idx < 0 || idx >= _trendLabels.length)
-                          return SizedBox();
-                        // Optionally only show every nth label for clarity:
-                        if (idx % 5 != 0 && idx != _trendLabels.length - 1)
-                          return SizedBox();
-                        return SideTitleWidget(
-                          meta: meta,
-                          // axisSide: meta.axisSide,
-                          child: Text(
-                            _trendLabels[idx],
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(show: false),
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    // tooltipBgColor: Colors.blueAccent.withOpacity(0.8),
-                    tooltipRoundedRadius: 10,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((touchedSpot) {
-                        final index = touchedSpot.spotIndex;
-                        final label =
-                            (index < _trendLabels.length)
-                                ? _trendLabels[index]
-                                : '';
-                        final value = touchedSpot.y.toInt();
-                        return LineTooltipItem(
-                          '$label\n$value',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
-                  handleBuiltInTouches: true,
-                ),
-                minY: 0,
-              ),
-            ),
-  );
-
   Widget buyerBarChartWidget() => Container(
-    height: 350,
+    height: 320,
     padding: EdgeInsets.fromLTRB(16, 16, 16, 26),
     decoration: BoxDecoration(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
-      // boxShadow: [
-      //   BoxShadow(
-      //     color: Colors.grey.withOpacity(0.2),
-      //     blurRadius: 8,
-      //     spreadRadius: 2,
-      //   ),
-      // ],
     ),
     child: BarChart(
       BarChartData(
@@ -719,9 +525,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     toY: value.toDouble(),
                     color: const Color.fromARGB(
                       255,
-                      25,
-                      109,
-                      255,
+                      53,
+                      144,
+                      243,
                     ), // ✅ One consistent color
                     width: 30,
                     borderRadius: BorderRadius.circular(3),
@@ -774,41 +580,508 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   );
 
-  Widget overtimeBarChartWidget() => Container(
-    height: 300,
-    padding: EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.2),
-          blurRadius: 8,
-          spreadRadius: 2,
-        ),
-      ],
-    ),
-    child: BarChart(
-      BarChartData(
-        barGroups:
-            overtimeData
-                .map(
-                  (data) => BarChartGroupData(
-                    x: data['x'],
-                    barRods: [
-                      BarChartRodData(
-                        toY: data['y'].toDouble(),
-                        color: data['color'],
-                        width: 18,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ],
+  // XXXXXXX----------------------------------XXXXXXX
+
+  // --------------------- Overtime Data Analysis ------------------------ //
+  Future<String?> fetchLatestOvertimeDate() async {
+    final rows = await Supabase.instance.client
+        .from('overtime_data')
+        .select('date')
+        .order('date', ascending: false)
+        .limit(1);
+    if (rows.isNotEmpty) {
+      return rows.first['date'].toString().split('T')[0];
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSectionWiseOvertime({
+    required String startDate,
+    required String endDate,
+  }) async {
+    final data = await Supabase.instance.client
+        .from('overtime_data')
+        .select('section, OT')
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+    // Aggregate average OT by section
+    final Map<String, List<int>> sectionToOts = {};
+    for (final row in data) {
+      final section = row['section'] ?? 'Unknown';
+      final ot = (row['OT'] ?? 0) as int;
+      sectionToOts.putIfAbsent(section, () => []).add(ot);
+    }
+
+    // Calculate average
+    return sectionToOts.entries
+        .map(
+          (entry) => {
+            'section': entry.key,
+            'avgOt':
+                entry.value.isNotEmpty
+                    ? entry.value.reduce((a, b) => a + b) / entry.value.length
+                    : 0.0,
+          },
+        )
+        .toList();
+  }
+
+  DateTimeRange? overtimeDateRange;
+  List<Map<String, dynamic>> sectionOtData = [];
+  bool isLoadingOt = false;
+
+  Future<void> loadInitialOvertimeData() async {
+    setState(() => isLoadingOt = true);
+    final latestDate = await fetchLatestOvertimeDate();
+    if (latestDate != null) {
+      overtimeDateRange = DateTimeRange(
+        start: DateTime.parse(latestDate),
+        end: DateTime.parse(latestDate),
+      );
+      sectionOtData = await fetchSectionWiseOvertime(
+        startDate: latestDate,
+        endDate: latestDate,
+      );
+    }
+    setState(() => isLoadingOt = false);
+  }
+
+  Future<void> pickOvertimeDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: overtimeDateRange,
+    );
+    if (picked != null) {
+      setState(() {
+        overtimeDateRange = picked;
+        isLoadingOt = true;
+      });
+      sectionOtData = await fetchSectionWiseOvertime(
+        startDate: picked.start.toIso8601String().split('T')[0],
+        endDate: picked.end.toIso8601String().split('T')[0],
+      );
+      setState(() => isLoadingOt = false);
+    }
+  }
+
+  Widget sectionOvertimeBarChart() {
+    if (isLoadingOt) return Center(child: CircularProgressIndicator());
+    if (sectionOtData.isEmpty) return Text('No data available');
+    return Container(
+      height: 320,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(0, 16, 0, 30),
+          width: max(
+            sectionOtData.length * 60.0,
+            MediaQuery.of(context).size.width,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: BarChart(
+            BarChartData(
+              barGroups: List.generate(sectionOtData.length, (idx) {
+                final item = sectionOtData[idx];
+                return BarChartGroupData(
+                  x: idx,
+                  barRods: [
+                    BarChartRodData(
+                      toY: (item['avgOt'] as num?)?.toDouble() ?? 0.0,
+                      color: const Color.fromARGB(255, 202, 60, 255),
+                      width: 30,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ],
+                );
+              }),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(show: true),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final idx = value.toInt();
+                      if (idx < 0 || idx >= sectionOtData.length)
+                        return SizedBox();
+                      return SideTitleWidget(
+                        meta: meta,
+                        child: Transform.rotate(
+                          angle: -0.6,
+                          child: Text(
+                            sectionOtData[idx]['section'],
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                )
-                .toList(),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: true),
+                ),
+              ),
+              barTouchData: BarTouchData(
+                // enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (group) => Colors.transparent,
+                  // getTooltipColor: (touchedSpot) => _getColor(interval, value),
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  tooltipPadding: const EdgeInsets.all(0),
+                  tooltipMargin: 0,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    // final section = sectionOtData[group.x.toInt()]['section'];
+                    final avgOt = (sectionOtData[group.x.toInt()]['avgOt']
+                            as num)
+                        .toStringAsFixed(2);
+                    return BarTooltipItem(
+                      rod.toY.toStringAsFixed(2), // value label
+                      // avgOt,
+                      TextStyle(color: Colors.black),
+                    );
+                  },
+                ),
+              ),
+              // minY: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      DateTime? latestDate = await getLatestShipmentDate();
+      if (latestDate != null) {
+        setState(() {
+          shipmentDateRange = DateTimeRange(start: latestDate, end: latestDate);
+        });
+
+        await loadInitialDashboard();
+        await loadShipmentStats();
+        await loadProductionTrend();
+        await loadInitialOvertimeData();
+      }
+    });
+  }
+
+  // ----------- WIDGETS ----------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          '',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blueAccent,
+      ),
+      drawer: AppSideBar(),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child:
+            isLoading
+                ? Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                  onRefresh: loadProductionSummary,
+                  child: SingleChildScrollView(
+                    physics: BouncingScrollPhysics(),
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        motivationalBanner(selectedQuote),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "SEWING PRODUCTION",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _selectDashboardDateRange,
+                              icon: Icon(
+                                Icons.calendar_today,
+                                color: Colors.blueAccent,
+                                size: 28,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 18),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildCard(
+                                "Production",
+                                summary['Production'],
+                                Colors.blue,
+                                Icons.factory,
+                              ),
+                              _buildCard(
+                                "Target",
+                                summary['Target'],
+                                Colors.green,
+                                Icons.flag,
+                              ),
+                              _buildCard(
+                                "Achievement %",
+                                summary['Achievement %'],
+                                Colors.orange,
+                                Icons.percent,
+                              ),
+                              _buildCard(
+                                "Efficiency %",
+                                summary['Efficiency %'],
+                                Colors.teal,
+                                Icons.speed,
+                              ),
+                              _buildCard(
+                                "Avg. SMV",
+                                summary['Avg. SMV'] == null
+                                    ? '-'
+                                    : (summary['Avg. SMV'] is num
+                                        ? summary['Avg. SMV'].toStringAsFixed(2)
+                                        : summary['Avg. SMV'].toString()),
+                                Colors.cyan,
+                                Icons.timer,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (dashboardDateRange != null &&
+                            !dashboardDateRange!.start.isAtSameMomentAs(
+                              dashboardDateRange!.end,
+                            )) ...[
+                          sectionTitle('PRODUCTION TREND'),
+                          lineChartWidget(),
+                        ],
+
+                        sectionTitleWithIcon(
+                          'SHIPMENT STATUS',
+                          _selectShipmentDateRange,
+                        ),
+                        horizontalCards(shipmentStatusData),
+                        sectionTitle('Top 5 Buyer Shipment'),
+                        buyerBarChartWidget(),
+                        SizedBox(height: 30),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "SECTION WISE OVERTIME (Hrs)",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.calendar_today,
+                                color: const Color.fromARGB(255, 202, 60, 255),
+                                size: 28,
+                              ),
+                              onPressed: pickOvertimeDateRange,
+                            ),
+                          ],
+                        ),
+                        sectionOvertimeBarChart(),
+                        SizedBox(height: 30),
+                        // ... Other sections like shipment, etc
+                      ],
+                    ),
+                  ),
+                ),
+      ),
+    );
+  }
+
+  Widget sectionTitle(String title) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20.0),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
       ),
     ),
+  );
+
+  Widget _buildCard(String title, dynamic value, Color color, IconData icon) {
+    final formattedValue =
+        value is num ? numberFormatter.format(value) : value?.toString() ?? '-';
+
+    return Container(
+      width: 140,
+      margin: EdgeInsets.only(right: 12),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: 32),
+          SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 6),
+          Text(
+            formattedValue,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget lineChartWidget() => Container(
+    height: 280,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child:
+        _productionTrendSpots.isEmpty
+            ? Center(child: Text("No trend data"))
+            : LineChart(
+              LineChartData(
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _productionTrendSpots,
+                    isCurved: true,
+                    barWidth: 4,
+                    color: Colors.blueAccent,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.blueAccent.withOpacity(0.2),
+                          Colors.blueAccent.withOpacity(0.01),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    dotData: FlDotData(show: true),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 5,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= _trendLabels.length)
+                          return SizedBox();
+                        if (idx % 5 != 0 && idx != _trendLabels.length - 1)
+                          return SizedBox();
+                        return SideTitleWidget(
+                          meta: meta,
+                          child: Text(
+                            _trendLabels[idx].substring(5), // MM-DD
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(show: false),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipRoundedRadius: 10,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((touchedSpot) {
+                        final index = touchedSpot.spotIndex;
+                        final label =
+                            (index < _trendLabels.length)
+                                ? _trendLabels[index]
+                                : '';
+                        final value = touchedSpot.y.toInt();
+                        return LineTooltipItem(
+                          '$label\n$value',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                  handleBuiltInTouches: true,
+                ),
+                minY: 0,
+              ),
+            ),
   );
 }
