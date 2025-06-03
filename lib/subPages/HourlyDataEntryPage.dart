@@ -180,7 +180,7 @@ class _HourlyDataEntryScreenState extends State<HourlyDataEntryScreen> {
         final target = int.tryParse(targetControllers[line]?.text ?? '') ?? 0;
         final remarks = remarksControllers[line]?.text ?? '';
 
-        if (productionQty == 0 || target == 0) {
+        if (productionQty == 0 && target == 0) {
           debugPrint('Skipping Line $line - Production or Target is missing.');
           continue;
         }
