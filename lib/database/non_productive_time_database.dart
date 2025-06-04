@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 import 'package:square_dms_trial/models/non_productive_time_model.dart';
 
 class NonProductiveDB {
-  static Future<Database> _openDB() async {
+  static Future<Database> openDB() async {
     return openDatabase(
       join(await getDatabasesPath(), 'NonProductive.db'),
 
@@ -30,7 +30,7 @@ class NonProductiveDB {
   }
 
   static Future<void> insertEntry(NonProductiveEntry entry) async {
-    final db = await _openDB();
+    final db = await openDB();
     // db.execute('''ALTER TABLE entries ADD COLUMN deptid TEXT''');
     await db.insert(
       'entries',
@@ -40,7 +40,7 @@ class NonProductiveDB {
   }
 
   static Future<List<NonProductiveEntry>> fetchEntries() async {
-    final db = await _openDB();
+    final db = await openDB();
     final List<Map<String, dynamic>> maps = await db.query('entries');
     return List.generate(
       maps.length,
@@ -49,12 +49,12 @@ class NonProductiveDB {
   }
 
   static Future<void> deleteEntry(String id) async {
-    final db = await _openDB();
+    final db = await openDB();
     await db.delete('entries', where: 'id = ?', whereArgs: [id]);
   }
 
   static Future<void> resetEntriesTable() async {
-    final db = await _openDB();
+    final db = await openDB();
     // await db.execute('DROP TABLE IF EXISTS entries');
     await db.execute('''
     CREATE TABLE entries(
@@ -75,7 +75,7 @@ class NonProductiveDB {
   }
 
   static Future<void> updateEntry(NonProductiveEntry entry) async {
-    final db = await _openDB();
+    final db = await openDB();
     await db.update(
       'entries',
       entry.toMap(),
