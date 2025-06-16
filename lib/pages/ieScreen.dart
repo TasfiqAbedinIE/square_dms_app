@@ -23,7 +23,7 @@ class IEScreen extends StatelessWidget {
             // _buildCard(context, "Efficiency", Icons.show_chart, "/efficiency"),
             _buildCard(
               context,
-              "Production",
+              "Hourly Production",
               Icons.production_quantity_limits,
               "/production",
             ),

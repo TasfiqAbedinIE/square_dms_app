@@ -7,6 +7,7 @@ import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:square_dms_trial/models/non_productive_time_model.dart';
 import 'package:square_dms_trial/database/non_productive_time_database.dart';
@@ -28,21 +29,26 @@ class NonProductiveTimeScreen extends StatefulWidget {
 class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
   final _uuid = Uuid();
   List<NonProductiveEntry> entries = [];
+  String userID = '';
 
   @override
   void initState() {
     super.initState();
     _loadEntriesForCard();
+    loadUserInfo();
   }
 
-  /// Load all NP entries matching this card's date and lineNo
+  Future<void> loadUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userID = prefs.getString('userID') ?? '';
+      // authority = prefs.getString('authority') ?? '';
+    });
+  }
+
+  // Load all NP entries matching this card's date and lineNo
+
   Future<void> _loadEntriesForCard() async {
-    // final dbPath = await getDatabasesPath();
-    // final db = await openDatabase(path.join(dbPath, 'NonProductive.db'));
-    // Open via our helper so that 'entries' (and other tables) are already created.
-    // final db = await openDatabase(
-    //   join(await getDatabasesPath(), 'NonProductive.db'),
-    // );
     final db = await NonProductiveDB.openDB();
 
     final formattedDate = widget.card.date; // already 'yyyy-MM-dd'
@@ -90,9 +96,6 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Note: No “Line No” or “Date” fields here;
-                    // they come from widget.card.lineNo & widget.card.date.
-
                     // Machine count & Target/Hour
                     Row(
                       children: [
@@ -339,7 +342,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                   60) *
                               (machineCount * durationMins),
                           machine_code: widget.card.id,
-                          deptid: '', // if needed, fill your deptId logic
+                          deptid: userID, // if needed, fill your deptId logic
                         );
 
                         // 7) Insert into local SQLite
@@ -711,14 +714,6 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
               // launchQRScanner(context); // ← define this method
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Download OT Factor',
-            onPressed: () {
-              // Download OT factors
-              downloadOTFactors(context); // ← define this method
-            },
-          ),
         ],
       ),
 
@@ -730,14 +725,6 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Text(
-                //   'Ref ID: ${widget.card.id}',
-                //   style: const TextStyle(
-                //     fontWeight: FontWeight.bold,
-                //     fontSize: 16,
-                //   ),
-                // ),
-                // const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -766,15 +753,6 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                     ),
                   ],
                 ),
-                // Text(
-                //   'Line: ${widget.card.lineNo}',
-                //   style: const TextStyle(fontSize: 14),
-                // ),
-                // const SizedBox(height: 4),
-                // Text(
-                //   'Buyer: ${widget.card.buyer}',
-                //   style: const TextStyle(fontSize: 14),
-                // ),
                 const SizedBox(height: 4),
 
                 const SizedBox(height: 4),
@@ -798,14 +776,19 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                       itemCount: entries.length,
                       itemBuilder: (context, index) {
                         final e = entries[index];
+
                         return Dismissible(
                           key: Key(e.id),
+
+                          // Green “Edit” background when swiping right:
                           background: Container(
                             color: Colors.green,
                             alignment: Alignment.centerLeft,
                             padding: const EdgeInsets.only(left: 20),
                             child: const Icon(Icons.edit, color: Colors.white),
                           ),
+
+                          // Red “Delete” background when swiping left:
                           secondaryBackground: Container(
                             color: Colors.red,
                             alignment: Alignment.centerRight,
@@ -815,10 +798,17 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                               color: Colors.white,
                             ),
                           ),
+
                           confirmDismiss: (direction) async {
+                            if (direction == DismissDirection.startToEnd) {
+                              // ► Swiped right: invoke edit sheet but do NOT dismiss
+                              _showEditEntrySheet(e);
+                              return false; // keep the item in the list
+                            }
+
+                            // ◄ Swiped left: show delete confirmation dialog
                             if (direction == DismissDirection.endToStart) {
-                              // Delete
-                              final confirm = await showDialog(
+                              final confirmed = await showDialog<bool>(
                                 context: context,
                                 builder:
                                     (_) => AlertDialog(
@@ -842,16 +832,16 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                       ],
                                     ),
                               );
-                              if (confirm == true) {
+
+                              if (confirmed == true) {
                                 await _deleteEntry(context, e.id);
                               }
-                              return confirm;
-                            } else {
-                              // Edit
-                              _showEditEntrySheet(e);
-                              return false;
+                              return confirmed;
                             }
+
+                            return false;
                           },
+
                           child: Card(
                             margin: const EdgeInsets.symmetric(
                               vertical: 6,

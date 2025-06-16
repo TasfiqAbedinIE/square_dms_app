@@ -601,30 +601,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }) async {
     final data = await Supabase.instance.client
         .from('overtime_data')
-        .select('section, OT')
+        .select('section, org_id, OT')
         .gte('date', startDate)
         .lte('date', endDate);
 
-    // Aggregate average OT by section
-    final Map<String, List<int>> sectionToOts = {};
+    // Map<section, Map<org_id, total OT for this org_id>>
+    final Map<String, Map<dynamic, int>> sectionOrgOt = {};
+
     for (final row in data) {
       final section = row['section'] ?? 'Unknown';
+      final orgId = row['org_id'];
       final ot = (row['OT'] ?? 0) as int;
-      sectionToOts.putIfAbsent(section, () => []).add(ot);
+
+      if (orgId == null) continue;
+
+      sectionOrgOt.putIfAbsent(section, () => {});
+      sectionOrgOt[section]![orgId] = (sectionOrgOt[section]![orgId] ?? 0) + ot;
     }
 
-    // Calculate average
-    return sectionToOts.entries
-        .map(
-          (entry) => {
-            'section': entry.key,
-            'avgOt':
-                entry.value.isNotEmpty
-                    ? entry.value.reduce((a, b) => a + b) / entry.value.length
-                    : 0.0,
-          },
-        )
-        .toList();
+    // Now calculate section-wise average OT
+    return sectionOrgOt.entries.map((entry) {
+      final section = entry.key;
+      final orgMap = entry.value;
+      final totalOt = orgMap.values.fold<int>(0, (a, b) => a + b);
+      final uniqueOrgCount = orgMap.keys.length;
+      final avgOt = uniqueOrgCount > 0 ? totalOt / uniqueOrgCount : 0.0;
+      return {'section': section, 'avgOt': avgOt};
+    }).toList();
   }
 
   DateTimeRange? overtimeDateRange;
