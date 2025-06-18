@@ -34,9 +34,11 @@ class _AboutScreenState extends State<AboutScreen> {
   ];
 
   static const List<Map<String, String>> upcomingTimeline = [
-    {'date': 'May 2025', 'description': 'Cutting Excess Booking Record'},
     {'date': 'June 2025', 'description': 'Efficiency Report Generation'},
-    {'date': 'July 2025', 'description': 'RAG-Powered Q&A'},
+    {
+      'date': 'July 2025',
+      'description': 'RAG-Powered Q&A, Cutting Excess Booking Record',
+    },
     {'date': 'Aug 2025', 'description': 'KPI initialization'},
   ];
 
@@ -366,6 +368,7 @@ class _AboutScreenState extends State<AboutScreen> {
 
                   const SizedBox(height: 16),
                   Container(
+                    padding: EdgeInsets.fromLTRB(0, 0, 0, 200),
                     height: MediaQuery.of(context).size.height,
                     width: MediaQuery.of(context).size.width,
                     decoration: BoxDecoration(

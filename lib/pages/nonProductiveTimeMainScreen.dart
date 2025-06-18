@@ -13,6 +13,7 @@ import 'dart:convert';
 
 import 'package:square_dms_trial/models/non_productive_time_line_model.dart';
 import 'package:square_dms_trial/database/non_productive_time_line_database.dart';
+import 'package:square_dms_trial/database/non_productive_time_database.dart';
 import 'package:square_dms_trial/subPages/NonProductiveTimeReportPage.dart';
 import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
 
@@ -184,12 +185,15 @@ class _NonProductiveTimeMainScreenState
   }
 
   /// Show modal bottom sheet for creating a new “line card”
-  void _showCreateLineCardSheet() async {
-    final _lineController = TextEditingController();
-    String? selectedBuyer;
-    String? selectedSalesDoc;
-    String? selectedStyle;
-    int? selectedLine;
+  void _showCreateLineCardSheet([NonProductiveTimeLineCard? existing]) async {
+    final _smvController = TextEditingController(
+      text: existing?.smv.toString() ?? '',
+    );
+
+    int? selectedLine = existing?.lineNo;
+    String? selectedBuyer = existing?.buyer;
+    String? selectedSalesDoc = existing?.soNumber;
+    String? selectedStyle = existing?.style;
 
     List<String> buyers = [];
     List<String> salesDocs = [];
@@ -320,14 +324,27 @@ class _NonProductiveTimeMainScreenState
                       ),
                     const SizedBox(height: 20),
 
+                    // Style dropdown
+                    if (selectedStyle != null)
+                      TextField(
+                        controller: _smvController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'SMV',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+
                     // Create button
                     ElevatedButton(
+                      child: Text(existing == null ? 'Create' : 'Update'),
                       onPressed: () async {
-                        // final lineText = _lineController.text.trim();
                         if (selectedLine == null ||
                             selectedBuyer == null ||
                             selectedSalesDoc == null ||
-                            selectedStyle == null) {
+                            selectedStyle == null ||
+                            _smvController.text.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Please fill all fields'),
@@ -336,45 +353,42 @@ class _NonProductiveTimeMainScreenState
                           return;
                         }
 
-                        // final lineNo = int.tryParse(lineText);
-                        // if (lineNo == null) {
-                        //   ScaffoldMessenger.of(context).showSnackBar(
-                        //     const SnackBar(
-                        //       content: Text('Line number must be numeric'),
-                        //     ),
-                        //   );
-                        //   return;
-                        // }
-
-                        final todayStr = DateFormat(
-                          'yyyy-MM-dd',
-                        ).format(selectedDate);
-                        final newId = _uuid.v4();
                         final card = NonProductiveTimeLineCard(
-                          id: newId,
+                          id: existing?.id ?? const Uuid().v4(),
                           lineNo: selectedLine!,
-                          date: todayStr,
+                          date:
+                              existing?.date ??
+                              DateFormat('yyyy-MM-dd').format(selectedDate),
                           buyer: selectedBuyer!,
                           soNumber: selectedSalesDoc!,
                           style: selectedStyle!,
+                          smv: double.tryParse(_smvController.text) ?? 0.0,
                         );
 
                         try {
-                          await NonProductiveTimeLineDB.insertCard(card);
-                          Navigator.pop(context);
-                          await _loadLineCards();
+                          if (existing == null) {
+                            await NonProductiveTimeLineDB.insertCard(card);
+                          } else {
+                            await NonProductiveTimeLineDB.updateCard(card);
+                          }
+
+                          Navigator.pop(sbc);
+                          await _loadLineCards(); // refresh your list
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Card created successfully'),
+                            SnackBar(
+                              content: Text(
+                                existing == null
+                                    ? 'Card created successfully'
+                                    : 'Card updated successfully',
+                              ),
                             ),
                           );
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error creating card: $e')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
                         }
                       },
-                      child: const Text('Create'),
                     ),
                   ],
                 ),
@@ -454,6 +468,7 @@ class _NonProductiveTimeMainScreenState
                   'totalNP': e['totalNP'],
                   'totalLostPcs': e['totalLostPcs'],
                   'deptid': e['deptid'],
+                  'res_dept': e['res_dept'],
                 },
               )
               .toList();
@@ -474,6 +489,86 @@ class _NonProductiveTimeMainScreenState
     } finally {
       await db.close();
     }
+  }
+
+  void _confirmDeleteLineCard(NonProductiveTimeLineCard card) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Delete line card?"),
+            content: const Text(
+              "This will remove the card and all its NP entries.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Delete"),
+              ),
+            ],
+          ),
+    );
+    if (ok == true) {
+      await _deleteLineCard(card);
+    }
+  }
+
+  Future<void> _deleteLineCard(NonProductiveTimeLineCard card) async {
+    // 1) delete from your line‐card table
+    await NonProductiveTimeLineDB.deleteCard(card.id);
+
+    // 2) delete all entries whose machine_code (or card.id) matches
+    await NonProductiveDB.openDB().then((db) {
+      return db.delete(
+        'entries',
+        where: 'machine_code = ?',
+        whereArgs: [card.id],
+      );
+    });
+
+    setState(() {
+      lineCards.removeWhere((c) => c.id == card.id);
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Line card deleted")));
+  }
+
+  Future<void> _askAndCopyLineCard(NonProductiveTimeLineCard card) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.parse(card.date),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+
+    final newDateStr = DateFormat('yyyy-MM-dd').format(picked);
+    final copied = NonProductiveTimeLineCard(
+      id: const Uuid().v4(),
+      lineNo: card.lineNo,
+      date: newDateStr,
+      buyer: card.buyer,
+      soNumber: card.soNumber,
+      style: card.style,
+      smv: card.smv,
+    );
+
+    await NonProductiveTimeLineDB.insertCard(copied);
+
+    // Only reload if we’re viewing that date right now
+    if (newDateStr == DateFormat('yyyy-MM-dd').format(selectedDate)) {
+      await _loadLineCards();
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Copied to $newDateStr")));
   }
 
   @override
@@ -569,6 +664,7 @@ class _NonProductiveTimeMainScreenState
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+
                           child: ListTile(
                             title: Text("Line ${card.lineNo}"),
                             subtitle: Column(
@@ -576,7 +672,36 @@ class _NonProductiveTimeMainScreenState
                               children: [
                                 Text("Buyer: ${card.buyer}"),
                                 Text(
-                                  "SO: ${card.soNumber}   Style: ${card.style}",
+                                  "SO: ${card.soNumber}   Style: ${card.style}  SMV: ${card.smv}",
+                                ),
+                                const Divider(),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // 1) Edit
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      tooltip: 'Edit line card',
+                                      onPressed:
+                                          () => _showCreateLineCardSheet(card),
+                                    ),
+
+                                    // 2) Delete
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, size: 20),
+                                      tooltip: 'Delete line card',
+                                      onPressed:
+                                          () => _confirmDeleteLineCard(card),
+                                    ),
+
+                                    // 3) Copy
+                                    IconButton(
+                                      icon: const Icon(Icons.copy, size: 20),
+                                      tooltip: 'Copy to another date',
+                                      onPressed:
+                                          () => _askAndCopyLineCard(card),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -591,6 +716,8 @@ class _NonProductiveTimeMainScreenState
 
       // Floating “+” button to create a new line card
       floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color.fromARGB(255, 255, 179, 193),
+        foregroundColor: Colors.black,
         onPressed: _showCreateLineCardSheet,
         child: const Icon(Icons.add),
       ),

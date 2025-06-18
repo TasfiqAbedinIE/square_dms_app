@@ -13,6 +13,7 @@ class NonProductiveTimeLineCard {
   final String buyer;
   final String soNumber;
   final String style;
+  final double smv;
 
   const NonProductiveTimeLineCard({
     required this.id,
@@ -21,6 +22,7 @@ class NonProductiveTimeLineCard {
     required this.buyer,
     required this.soNumber,
     required this.style,
+    required this.smv,
   });
 
   /// Construct from a SQLite row (Map<String, Object?>)
@@ -32,6 +34,7 @@ class NonProductiveTimeLineCard {
       buyer: map['buyer'] as String,
       soNumber: map['soNumber'] as String,
       style: map['style'] as String,
+      smv: map['smv'] as double,
     );
   }
 
@@ -44,6 +47,7 @@ class NonProductiveTimeLineCard {
       'buyer': buyer,
       'soNumber': soNumber,
       'style': style,
+      'smv': smv,
     };
   }
 }

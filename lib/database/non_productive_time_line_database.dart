@@ -23,7 +23,8 @@ class NonProductiveTimeLineDB {
             date TEXT NOT NULL,
             buyer TEXT NOT NULL,
             soNumber TEXT NOT NULL,
-            style TEXT NOT NULL
+            style TEXT NOT NULL,
+            smv DOUBLE NOT NULL
           )
         ''');
       },
@@ -67,6 +68,17 @@ class NonProductiveTimeLineDB {
   static Future<void> clearCardsForDate(String date) async {
     final db = await _openDB();
     await db.delete(_tableName, where: 'date = ?', whereArgs: [date]);
+    await db.close();
+  }
+
+  static Future<void> updateCard(NonProductiveTimeLineCard card) async {
+    final db = await _openDB();
+    await db.update(
+      _tableName, // your table name
+      card.toMap(), // make sure your model has toMap()
+      where: 'id = ?',
+      whereArgs: [card.id],
+    );
     await db.close();
   }
 }

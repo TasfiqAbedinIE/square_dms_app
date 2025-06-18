@@ -11,6 +11,7 @@ class NonProductiveEntry {
   final double totalLostPcs;
   final String machine_code;
   final String deptid;
+  final String res_dept;
 
   NonProductiveEntry({
     required this.id,
@@ -25,6 +26,7 @@ class NonProductiveEntry {
     required this.totalLostPcs,
     required this.machine_code,
     required this.deptid,
+    required this.res_dept,
   });
 
   Map<String, dynamic> toMap() {
@@ -41,6 +43,7 @@ class NonProductiveEntry {
       'totalLostPcs': totalLostPcs,
       'machine_code': machine_code,
       'deptid': deptid,
+      'res_dept': res_dept,
     };
   }
 
@@ -58,6 +61,7 @@ class NonProductiveEntry {
       totalLostPcs: map['totalLostPcs'],
       machine_code: map['machine_code'],
       deptid: map['deptid'] ?? '',
+      res_dept: map['res_dept'] ?? '',
     );
   }
 }

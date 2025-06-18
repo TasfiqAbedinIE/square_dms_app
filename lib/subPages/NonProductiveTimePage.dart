@@ -78,6 +78,19 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     final hourlyTargetController = TextEditingController();
     String? selectedFactor;
     int? timeDifferenceInMinutes;
+    String? selectedDepartment;
+
+    List<String> departments = [
+      'Planning',
+      'Maintenance',
+      'Quality',
+      'Cutting',
+      'Finishing',
+      'Printing',
+      'Embroidery',
+      'Store',
+      'Fabrics Unit',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -111,11 +124,20 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextField(
-                            controller: hourlyTargetController,
-                            keyboardType: TextInputType.number,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedDepartment,
+                            items:
+                                departments.map((dept) {
+                                  return DropdownMenuItem<String>(
+                                    value: dept,
+                                    child: Text(dept),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedDepartment = value);
+                            },
                             decoration: const InputDecoration(
-                              labelText: 'Target/Hour',
+                              labelText: "Department",
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -337,12 +359,14 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           durationMinutes: durationMins,
                           totalNP: machineCount * durationMins,
                           totalLostPcs:
-                              ((double.tryParse(hourlyTargetController.text) ??
-                                      0) /
-                                  60) *
-                              (machineCount * durationMins),
+                              ((machineCount * durationMins) /
+                                  widget.card.smv) *
+                              3,
                           machine_code: widget.card.id,
-                          deptid: userID, // if needed, fill your deptId logic
+                          deptid: userID,
+                          res_dept:
+                              selectedDepartment
+                                  .toString(), // if needed, fill your deptId logic
                         );
 
                         // 7) Insert into local SQLite
@@ -446,6 +470,19 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     String selectedEndTime = entry.endTime;
     String selectedFactor = entry.reason;
     int? timeDifferenceInMinutes;
+    String? selectedDepartment = entry.res_dept;
+
+    List<String> departments = [
+      'Planning',
+      'Maintenance',
+      'Quality',
+      'Cutting',
+      'Finishing',
+      'Printing',
+      'Embroidery',
+      'Store',
+      'Fabrics Unit',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -479,11 +516,20 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextField(
-                            controller: hourlyTargetController,
-                            keyboardType: TextInputType.number,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedDepartment,
+                            items:
+                                departments.map((dept) {
+                                  return DropdownMenuItem<String>(
+                                    value: dept,
+                                    child: Text(dept),
+                                  );
+                                }).toList(),
+                            onChanged: (value) {
+                              setModalState(() => selectedDepartment = value!);
+                            },
                             decoration: const InputDecoration(
-                              labelText: 'Target/Hour',
+                              labelText: "Department",
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -657,6 +703,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                               (machineCount * durationMins),
                           machine_code: entry.machine_code,
                           deptid: entry.deptid,
+                          res_dept: entry.res_dept,
                         );
 
                         try {
@@ -866,6 +913,8 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
 
       // ── FAB to add a new entry ──
       floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color.fromARGB(255, 255, 179, 193),
+        foregroundColor: Colors.black,
         onPressed: _showAddEntrySheet,
         child: const Icon(Icons.add),
       ),

@@ -21,11 +21,22 @@ class NonProductiveDB {
             totalNP int,
             totalLostPcs DOUBLE,
             machine_code TEXT,
-            deptid TEXT
+            deptid TEXT,
+            res_dept TEXT
           )
         ''');
       },
       version: 1,
+      onOpen: (db) async {
+        // 1) Inspect the schema for 'entries'
+        final info = await db.rawQuery("PRAGMA table_info('entries');");
+        final hasResDept = info.any((row) => row['name'] == 'res_dept');
+
+        if (!hasResDept) {
+          // 2) If missing, add it (new columns default to NULL)
+          await db.execute("ALTER TABLE entries ADD COLUMN res_dept TEXT;");
+        }
+      },
     );
   }
 
@@ -69,7 +80,8 @@ class NonProductiveDB {
       totalNP INTEGER,
       totalLostPcs DOUBLE,
       machine_code TEXT,
-      deptid TEXT
+      deptid TEXT,
+      res_dept TEXT
     )
   ''');
   }
