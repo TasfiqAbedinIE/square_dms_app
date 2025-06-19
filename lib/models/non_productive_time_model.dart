@@ -12,6 +12,9 @@ class NonProductiveEntry {
   final String machine_code;
   final String deptid;
   final String res_dept;
+  final String salesOrder;
+  final String buyer;
+  final String style;
 
   NonProductiveEntry({
     required this.id,
@@ -27,6 +30,9 @@ class NonProductiveEntry {
     required this.machine_code,
     required this.deptid,
     required this.res_dept,
+    required this.salesOrder,
+    required this.buyer,
+    required this.style,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +50,9 @@ class NonProductiveEntry {
       'machine_code': machine_code,
       'deptid': deptid,
       'res_dept': res_dept,
+      'salesOrder': salesOrder,
+      'buyer': buyer,
+      'style': style,
     };
   }
 
@@ -62,6 +71,9 @@ class NonProductiveEntry {
       machine_code: map['machine_code'],
       deptid: map['deptid'] ?? '',
       res_dept: map['res_dept'] ?? '',
+      salesOrder: map['salesOrder'] ?? '',
+      buyer: map['buyer'] ?? '',
+      style: map['style'] ?? '',
     );
   }
 }

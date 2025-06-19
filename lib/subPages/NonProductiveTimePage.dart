@@ -367,6 +367,9 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           res_dept:
                               selectedDepartment
                                   .toString(), // if needed, fill your deptId logic
+                          salesOrder: widget.card.soNumber,
+                          buyer: widget.card.buyer,
+                          style: widget.card.style,
                         );
 
                         // 7) Insert into local SQLite
@@ -704,6 +707,9 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           machine_code: entry.machine_code,
                           deptid: entry.deptid,
                           res_dept: entry.res_dept,
+                          salesOrder: widget.card.soNumber,
+                          buyer: widget.card.buyer,
+                          style: widget.card.style,
                         );
 
                         try {

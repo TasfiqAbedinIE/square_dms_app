@@ -22,19 +22,35 @@ class NonProductiveDB {
             totalLostPcs DOUBLE,
             machine_code TEXT,
             deptid TEXT,
-            res_dept TEXT
+            res_dept TEXT,
+            salesOrder TEXT,
+            buyer TEXT,
+            style TEXT
           )
         ''');
       },
       version: 1,
       onOpen: (db) async {
-        // 1) Inspect the schema for 'entries'
-        final info = await db.rawQuery("PRAGMA table_info('entries');");
-        final hasResDept = info.any((row) => row['name'] == 'res_dept');
+        // Define all the columns you want to ensure exist:
+        final columnsToAdd = <String, String>{
+          'salesOrder': 'TEXT',
+          'buyer': 'TEXT',
+          'style': 'TEXT',
+        };
 
-        if (!hasResDept) {
-          // 2) If missing, add it (new columns default to NULL)
-          await db.execute("ALTER TABLE entries ADD COLUMN res_dept TEXT;");
+        // Inspect the existing schema:
+        final info = await db.rawQuery("PRAGMA table_info('entries');");
+        final existingCols = info.map((row) => row['name'] as String).toSet();
+
+        // For each desired column, if it's missing, ALTER TABLE to add it:
+        for (final entry in columnsToAdd.entries) {
+          final colName = entry.key;
+          final colDef = entry.value;
+          if (!existingCols.contains(colName)) {
+            await db.execute(
+              "ALTER TABLE entries ADD COLUMN $colName $colDef;",
+            );
+          }
         }
       },
     );
@@ -81,7 +97,10 @@ class NonProductiveDB {
       totalLostPcs DOUBLE,
       machine_code TEXT,
       deptid TEXT,
-      res_dept TEXT
+      res_dept TEXT,
+      salesOrder TEXT,
+      buyer TEXT,
+      style TEXT
     )
   ''');
   }

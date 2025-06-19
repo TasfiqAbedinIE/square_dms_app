@@ -469,6 +469,9 @@ class _NonProductiveTimeMainScreenState
                   'totalLostPcs': e['totalLostPcs'],
                   'deptid': e['deptid'],
                   'res_dept': e['res_dept'],
+                  'salesOrder': e['salesOrder'],
+                  'buyer': e['buyer'],
+                  'style': e['style'],
                 },
               )
               .toList();
