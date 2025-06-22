@@ -213,6 +213,27 @@ class _NonProductiveTimeMainScreenState
     buyers =
         data.map((e) => e['buyerName'].toString()).toSet().toList()..sort();
 
+    // if we're editing, pre-populate the two dependent lists:
+    if (existing != null) {
+      salesDocs =
+          data
+              .where((row) => row['buyerName'] == existing.buyer)
+              .map((e) => e['salesDocument'].toString())
+              .toSet()
+              .toList()
+            ..sort();
+
+      styles =
+          data
+              .where(
+                (row) => row['salesDocument'].toString() == existing.soNumber,
+              )
+              .map((e) => e['style'].toString())
+              .toSet()
+              .toList()
+            ..sort();
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -251,25 +272,28 @@ class _NonProductiveTimeMainScreenState
                     // Buyer dropdown
                     DropdownButtonFormField<String>(
                       value: selectedBuyer,
-                      hint: const Text("Select Buyer"),
+                      decoration: const InputDecoration(labelText: "Buyer"),
                       items:
-                          buyers.map((buyer) {
-                            return DropdownMenuItem(
-                              value: buyer,
-                              child: Text(buyer),
-                            );
-                          }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedBuyer = value;
+                          buyers
+                              .map(
+                                (b) =>
+                                    DropdownMenuItem(value: b, child: Text(b)),
+                              )
+                              .toList(),
+                      onChanged: (b) {
+                        setModalState(() {
+                          selectedBuyer = b;
                           selectedSalesDoc = null;
                           selectedStyle = null;
+                          // rebuild salesDocs for this buyer
                           salesDocs =
                               data
-                                  .where((row) => row['buyerName'] == value)
+                                  .where((row) => row['buyerName'] == b)
                                   .map((e) => e['salesDocument'].toString())
                                   .toSet()
-                                  .toList();
+                                  .toList()
+                                ..sort();
+                          styles = [];
                         });
                       },
                     ),
@@ -279,28 +303,31 @@ class _NonProductiveTimeMainScreenState
                     if (selectedBuyer != null)
                       DropdownButtonFormField<String>(
                         value: selectedSalesDoc,
-                        hint: const Text("Select Sales Document"),
+                        decoration: const InputDecoration(labelText: "SO No."),
                         items:
-                            salesDocs.map((doc) {
-                              return DropdownMenuItem(
-                                value: doc,
-                                child: Text(doc),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedSalesDoc = value;
+                            salesDocs
+                                .map(
+                                  (d) => DropdownMenuItem(
+                                    value: d,
+                                    child: Text(d),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (d) {
+                          setModalState(() {
+                            selectedSalesDoc = d;
                             selectedStyle = null;
+                            // rebuild styles for this SO
                             styles =
                                 data
                                     .where(
                                       (row) =>
-                                          row['salesDocument'].toString() ==
-                                          value,
+                                          row['salesDocument'].toString() == d,
                                     )
                                     .map((e) => e['style'].toString())
                                     .toSet()
-                                    .toList();
+                                    .toList()
+                                  ..sort();
                           });
                         },
                       ),
@@ -310,21 +337,23 @@ class _NonProductiveTimeMainScreenState
                     if (selectedSalesDoc != null)
                       DropdownButtonFormField<String>(
                         value: selectedStyle,
-                        hint: const Text("Select Style"),
+                        decoration: const InputDecoration(labelText: "Style"),
                         items:
-                            styles.map((style) {
-                              return DropdownMenuItem(
-                                value: style,
-                                child: Text(style),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          setState(() => selectedStyle = value);
-                        },
+                            styles
+                                .map(
+                                  (s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged:
+                            (s) => setModalState(() => selectedStyle = s),
                       ),
+
                     const SizedBox(height: 20),
 
-                    // Style dropdown
+                    // SMV input
                     if (selectedStyle != null)
                       TextField(
                         controller: _smvController,
