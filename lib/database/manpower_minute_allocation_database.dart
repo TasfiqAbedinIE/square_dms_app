@@ -1,16 +1,17 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-class SamEarnerDatabase {
-  static final SamEarnerDatabase instance = SamEarnerDatabase._init();
+class ManpowerMinuteAllocationDatabase {
+  static final ManpowerMinuteAllocationDatabase instance =
+      ManpowerMinuteAllocationDatabase._init();
 
   static Database? _database;
 
-  SamEarnerDatabase._init();
+  ManpowerMinuteAllocationDatabase._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('manpower_optimization.db');
+    _database = await _initDB('manpower_minute_allocation.db');
     return _database!;
   }
 
@@ -23,7 +24,7 @@ class SamEarnerDatabase {
 
   Future _createDB(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE sam_earner (
+      CREATE TABLE minute_allocation (
         id TEXT PRIMARY KEY,
         block TEXT,
         date TEXT,
@@ -39,25 +40,11 @@ class SamEarnerDatabase {
 
   Future<void> insertOrUpdate(Map<String, dynamic> data) async {
     final db = await instance.database;
-
-    final existing = await db.query(
-      'sam_earner',
-      where: 'block = ? AND date = ? AND lineNo = ?',
-      whereArgs: [data['block'], data['date'], data['lineNo']],
+    await db.insert(
+      'minute_allocation',
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
-
-    if (existing.isNotEmpty) {
-      // Update existing
-      await db.update(
-        'sam_earner',
-        data,
-        where: 'block = ? AND date = ? AND lineNo = ?',
-        whereArgs: [data['block'], data['date'], data['lineNo']],
-      );
-    } else {
-      // Insert new with UUID
-      await db.insert('sam_earner', data);
-    }
   }
 
   Future<List<Map<String, dynamic>>> fetchByBlockAndDate(
@@ -66,7 +53,7 @@ class SamEarnerDatabase {
   ) async {
     final db = await instance.database;
     return await db.query(
-      'sam_earner',
+      'minute_allocation',
       where: 'block = ? AND date = ?',
       whereArgs: [block, date],
     );
@@ -76,7 +63,7 @@ class SamEarnerDatabase {
     final db = await instance.database;
     final result = await db.rawQuery(
       '''
-    SELECT SUM(hrs8) as total FROM sam_earner 
+    SELECT SUM(hrs8) as total FROM minute_allocation 
     WHERE block = ? AND date = ?
   ''',
       [block, date],

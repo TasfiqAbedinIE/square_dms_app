@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:square_dms_trial/database/manpower_samEarner_database.dart';
+import 'package:square_dms_trial/database/manpower_minute_allocation_database.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,19 +8,24 @@ import 'dart:convert';
 
 final uuid = Uuid();
 
-class SamEarnerPage extends StatefulWidget {
+class ManpowerMinuteAllocationPage extends StatefulWidget {
   final void Function(String block)? onBlockChanged;
   // final VoidCallback? onAllocationChanged;
   final void Function(int)? onAllocationChanged;
 
-  const SamEarnerPage({Key? key, this.onBlockChanged, this.onAllocationChanged})
-    : super(key: key);
+  const ManpowerMinuteAllocationPage({
+    Key? key,
+    this.onBlockChanged,
+    this.onAllocationChanged,
+  }) : super(key: key);
 
   @override
-  _SamEarnerPageState createState() => _SamEarnerPageState();
+  _ManpowerMinuteAllocationPageState createState() =>
+      _ManpowerMinuteAllocationPageState();
 }
 
-class _SamEarnerPageState extends State<SamEarnerPage>
+class _ManpowerMinuteAllocationPageState
+    extends State<ManpowerMinuteAllocationPage>
     with AutomaticKeepAliveClientMixin {
   final Map<String, List<int>> blockLines = {
     '1-6': [1, 2, 3, 4, 5, 6],
@@ -131,9 +136,9 @@ class _SamEarnerPageState extends State<SamEarnerPage>
     String block,
     String date,
   ) async {
-    final db = await SamEarnerDatabase.instance.database;
+    final db = await ManpowerMinuteAllocationDatabase.instance.database;
     return await db.query(
-      'sam_earner',
+      'minute_allocation',
       where: 'block = ? AND date = ?',
       whereArgs: [block, date],
     );
@@ -221,7 +226,7 @@ class _SamEarnerPageState extends State<SamEarnerPage>
   Future<void> saveData() async {
     for (var row in tableData) {
       // final id = uuid.v4();
-      await SamEarnerDatabase.instance.insertOrUpdate({
+      await ManpowerMinuteAllocationDatabase.instance.insertOrUpdate({
         'id': row['id'] ?? uuid.v4(),
         'block': selectedBlock!,
         'date': DateFormat('yyyy-MM-dd').format(selectedDate),
@@ -398,3 +403,269 @@ class _SamEarnerPageState extends State<SamEarnerPage>
         );
   }
 }
+
+// import 'package:flutter/material.dart';
+// import 'package:intl/intl.dart';
+// import 'package:square_dms_trial/database/manpower_minute_allocation_database.dart';
+// import 'package:uuid/uuid.dart';
+
+// final uuid = Uuid();
+
+// class ManpowerMinuteAllocationPage extends StatefulWidget {
+//   final String? selectedBlock;
+//   final DateTime selectedDate;
+//   final Map<String, List<int>> blockLines;
+//   final void Function(int)? onAllocationChanged;
+
+//   const ManpowerMinuteAllocationPage({
+//     Key? key,
+//     required this.selectedBlock,
+//     required this.selectedDate,
+//     required this.blockLines,
+//     this.onAllocationChanged,
+//   }) : super(key: key);
+
+//   @override
+//   _ManpowerMinuteAllocationPageState createState() =>
+//       _ManpowerMinuteAllocationPageState();
+// }
+
+// class _ManpowerMinuteAllocationPageState
+//     extends State<ManpowerMinuteAllocationPage> {
+//   List<int> lineNumbers = [];
+//   List<Map<String, dynamic>> tableData = [];
+//   Key tableKey = UniqueKey();
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     if (widget.selectedBlock != null && widget.selectedBlock!.isNotEmpty) {
+//       selectBlock(widget.selectedBlock!);
+//     }
+//   }
+
+//   @override
+//   bool get wantKeepAlive => true;
+
+//   @override
+//   void didUpdateWidget(covariant ManpowerMinuteAllocationPage oldWidget) {
+//     super.didUpdateWidget(oldWidget);
+//     if (oldWidget.selectedBlock != widget.selectedBlock ||
+//         oldWidget.selectedDate != widget.selectedDate) {
+//       if (widget.selectedBlock != null && widget.selectedBlock!.isNotEmpty) {
+//         selectBlock(widget.selectedBlock!);
+//       }
+//     }
+//   }
+
+//   void selectBlock(String block) async {
+//     final lines = widget.blockLines[block] ?? [];
+//     final dateStr = DateFormat('yyyy-MM-dd').format(widget.selectedDate);
+
+//     final savedData = await ManpowerMinuteAllocationDatabase.instance
+//         .fetchByBlockAndDate(block, dateStr);
+
+//     // Step 3: Rebuild tableData with new values
+//     final newTable =
+//         lines.map((line) {
+//           final match = savedData.where((e) => e['lineNo'] == line).toList();
+
+//           if (match.isNotEmpty) {
+//             final existing = match.first;
+//             return {
+//               'id': existing['id'],
+//               'lineNo': line,
+//               'hrs8': existing['hrs8'],
+//               'hrs4to6': existing['hrs4to6'],
+//               'hrs6to8': existing['hrs6to8'],
+//               'hrs8to10': existing['hrs8to10'],
+//               'hrs10to12': existing['hrs10to12'],
+//             };
+//           } else {
+//             return {
+//               'id': uuid.v4(),
+//               'lineNo': line,
+//               'hrs8': null,
+//               'hrs4to6': null,
+//               'hrs6to8': null,
+//               'hrs8to10': null,
+//               'hrs10to12': null,
+//             };
+//           }
+//         }).toList();
+
+//     int total = 0;
+//     for (var row in newTable) {
+//       for (var key in ['hrs8', 'hrs4to6', 'hrs6to8', 'hrs8to10', 'hrs10to12']) {
+//         final value = row[key];
+//         if (value is int) {
+//           total += value;
+//         } else if (value is num) {
+//           total += value.toInt();
+//         }
+//       }
+//       debugPrint(total.toString());
+//     }
+//     widget.onAllocationChanged?.call(total);
+
+//     setState(() {
+//       tableData = newTable;
+//       tableKey = UniqueKey();
+//     });
+//   }
+
+//   Future<void> saveData() async {
+//     final dateStr = DateFormat('yyyy-MM-dd').format(widget.selectedDate);
+//     for (var row in tableData) {
+//       await ManpowerMinuteAllocationDatabase.instance.insertOrUpdate({
+//         'id': row['id'],
+//         'block': widget.selectedBlock,
+//         'date': dateStr,
+//         'lineNo': row['lineNo'],
+//         'hrs8': row['hrs8'],
+//         'hrs4to6': row['hrs4to6'],
+//         'hrs6to8': row['hrs6to8'],
+//         'hrs8to10': row['hrs8to10'],
+//         'hrs10to12': row['hrs10to12'],
+//       });
+//     }
+//     _notifyAllocationChange();
+//     ScaffoldMessenger.of(
+//       context,
+//     ).showSnackBar(SnackBar(content: Text('Saved successfully')));
+//   }
+
+//   Widget _buildEditableCell(Map<String, dynamic> row, String key) {
+//     return Container(
+//       width: 100,
+//       padding: const EdgeInsets.all(4),
+//       child: TextFormField(
+//         initialValue: row[key]?.toString() ?? '',
+//         keyboardType: TextInputType.number,
+//         textAlign: TextAlign.center,
+//         onChanged: (val) {
+//           row[key] = val.isEmpty ? null : int.tryParse(val);
+//           _notifyAllocationChange();
+//         },
+//         decoration: const InputDecoration(
+//           border: UnderlineInputBorder(),
+//           isDense: true,
+//           contentPadding: EdgeInsets.symmetric(vertical: 8),
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildFixedCell(String text) {
+//     return Container(
+//       width: 80,
+//       height: 48,
+//       alignment: Alignment.center,
+//       decoration: BoxDecoration(
+//         color: Colors.grey[300],
+//         border: Border.all(color: Colors.grey.shade300),
+//       ),
+//       child: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
+//     );
+//   }
+
+//   Widget _buildHeaderCell(String title) {
+//     return Container(
+//       width: 100,
+//       height: 48,
+//       alignment: Alignment.center,
+//       decoration: BoxDecoration(
+//         color: Colors.blue[100],
+//         border: Border.all(color: Colors.grey.shade300),
+//       ),
+//       child: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+//     );
+//   }
+
+//   void _notifyAllocationChange() {
+//     int total = 0;
+
+//     for (var row in tableData) {
+//       for (var key in ['hrs8', 'hrs4to6', 'hrs6to8', 'hrs8to10', 'hrs10to12']) {
+//         final value = row[key];
+
+//         if (value is int) {
+//           total += value;
+//         } else if (value is String) {
+//           total += int.tryParse(value) ?? 0;
+//         } else if (value is num) {
+//           total += value.toInt();
+//         }
+//       }
+//     }
+//     debugPrint('Minute Allocation Updated: $total');
+//     widget.onAllocationChanged?.call(total);
+//   }
+
+//   Widget buildTable() {
+//     return Row(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Column(
+//           children: [
+//             _buildFixedCell('Line No.'),
+//             ...tableData.map(
+//               (row) => _buildFixedCell(row['lineNo'].toString()),
+//             ),
+//           ],
+//         ),
+//         Expanded(
+//           child: SingleChildScrollView(
+//             scrollDirection: Axis.horizontal,
+//             child: Column(
+//               children: [
+//                 Row(
+//                   children: [
+//                     _buildHeaderCell('8 Hrs'),
+//                     _buildHeaderCell('4–6'),
+//                     _buildHeaderCell('6–8'),
+//                     _buildHeaderCell('8–10'),
+//                     _buildHeaderCell('10–12'),
+//                   ],
+//                 ),
+//                 ...tableData.map((row) {
+//                   return Row(
+//                     children: [
+//                       _buildEditableCell(row, 'hrs8'),
+//                       _buildEditableCell(row, 'hrs4to6'),
+//                       _buildEditableCell(row, 'hrs6to8'),
+//                       _buildEditableCell(row, 'hrs8to10'),
+//                       _buildEditableCell(row, 'hrs10to12'),
+//                     ],
+//                   );
+//                 }).toList(),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     if (widget.selectedBlock == null) {
+//       return Center(child: Text('No block selected'));
+//     }
+
+//     return Padding(
+//       padding: const EdgeInsets.all(12),
+//       child: Column(
+//         children: [
+//           Text(
+//             'Block: ${widget.selectedBlock} | Date: ${DateFormat('yyyy-MM-dd').format(widget.selectedDate)}',
+//             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+//           ),
+//           const SizedBox(height: 12),
+//           Expanded(child: SingleChildScrollView(child: buildTable())),
+//           ElevatedButton(onPressed: saveData, child: Text('Save')),
+//         ],
+//       ),
+//     );
+//   }
+// }

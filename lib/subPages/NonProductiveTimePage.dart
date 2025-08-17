@@ -82,6 +82,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
 
     List<String> departments = [
       'Planning',
+      'Marketing',
       'Maintenance',
       'Quality',
       'Cutting',
@@ -477,6 +478,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
 
     List<String> departments = [
       'Planning',
+      'Marketing',
       'Maintenance',
       'Quality',
       'Cutting',
