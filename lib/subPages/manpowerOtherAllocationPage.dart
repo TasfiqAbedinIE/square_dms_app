@@ -33,7 +33,11 @@ const List<String> manpowerFactors = [
   "RESIGN",
   "TRAINING",
   "SKILL DEV",
-  "TRANSFER TO OTHER BLOCK",
+  "T & D",
+  "WASHING",
+  "EMBROIDERY",
+  "PRINTING",
+  "CAP",
 ];
 
 class ManpowerOtherAllocationPage extends StatefulWidget {

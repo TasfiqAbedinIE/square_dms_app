@@ -21,7 +21,8 @@ class ManpowerSummaryDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT,
         block TEXT,
-        total_present INTEGER
+        total_present INTEGER,
+        UNIQUE(date, block)
       )
     ''');
   }

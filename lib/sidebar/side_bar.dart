@@ -95,6 +95,14 @@ class _AppSideBarState extends State<AppSideBar> {
             },
           ),
           _buildTile(
+            icon: Icons.build_circle,
+            label: 'Engineering',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/ENGINEERING');
+            },
+          ),
+          _buildTile(
             icon: Icons.man,
             label: 'Profile',
             onTap: () {

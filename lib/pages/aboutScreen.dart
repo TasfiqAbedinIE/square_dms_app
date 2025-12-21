@@ -31,15 +31,21 @@ class _AboutScreenState extends State<AboutScreen> {
     'Push Notifications',
     'Non-Productive Time Tracking',
     'Standard Process Video',
+    'Manpower Optimization Module',
+    'Simple Andon system for production issue analysis',
   ];
 
   static const List<Map<String, String>> upcomingTimeline = [
-    {'date': 'June 2025', 'description': 'Efficiency Report Generation'},
     {
-      'date': 'July 2025',
-      'description': 'RAG-Powered Q&A, Cutting Excess Booking Record',
+      'date': 'December 2025',
+      'description': 'Automated Target system Development.',
     },
-    {'date': 'Aug 2025', 'description': 'KPI initialization'},
+    {
+      'date': 'January 2026',
+      'description':
+          'Efficiency Analysis, QR code base machine breakdown tracking system.',
+    },
+    {'date': 'February 2026', 'description': 'RAG-Powered Q&A.'},
   ];
 
   @override

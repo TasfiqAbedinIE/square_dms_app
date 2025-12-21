@@ -11,6 +11,8 @@ import 'package:square_dms_trial/pages/profileScreen.dart';
 import 'package:square_dms_trial/pages/processVideoScreen.dart';
 import 'package:square_dms_trial/pages/manpowerOptScreen.dart';
 import 'package:square_dms_trial/pages/nonProductiveTimeMainScreen.dart';
+import 'package:square_dms_trial/pages/andon_board_page.dart';
+import 'package:square_dms_trial/pages/engineeringScreen.dart';
 
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
@@ -121,10 +123,11 @@ class _MyAppState extends State<MyApp> {
         '/skill_matrix': (context) => const SkillMatrixScreen(),
         '/profile': (context) => ProfileScreen(),
         '/about': (context) => AboutScreen(),
-        // '/nonProductive': (context) => NonProductiveTimeScreen(),
         '/nonProductive': (context) => NonProductiveTimeMainScreen(),
         '/processVideo': (context) => VideoViewerScreen(),
         '/manpowerOpt': (context) => ManpowerOptimizationScreen(),
+        '/andonBoardPage': (context) => AndonBoardPage(),
+        '/ENGINEERING': (context) => EngineeringScreen(),
       },
     );
   }

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:square_dms_trial/sidebar/side_bar.dart';
 
-class IEScreen extends StatelessWidget {
-  const IEScreen({super.key});
+class EngineeringScreen extends StatelessWidget {
+  const EngineeringScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Industrial Engineering"),
-        backgroundColor: const Color.fromARGB(255, 94, 43, 255),
+        title: const Text("Engineering"),
+        backgroundColor: const Color.fromARGB(255, 99, 9, 255),
         foregroundColor: Colors.white,
       ),
       drawer: AppSideBar(),
@@ -23,40 +23,40 @@ class IEScreen extends StatelessWidget {
             // _buildCard(context, "Efficiency", Icons.show_chart, "/efficiency"),
             _buildCard(
               context,
-              "Hourly Production",
-              Icons.production_quantity_limits,
+              "Sewing Machine",
+              Icons.conveyor_belt,
               "/production",
             ),
-            _buildCard(
-              context,
-              "Skill Matrix",
-              Icons.local_activity,
-              "/skill_matrix",
-            ),
-            _buildCard(
-              context,
-              "Non Productive Time",
-              Icons.timelapse,
-              "/nonProductive",
-            ),
-            _buildCard(
-              context,
-              "Manpower Optimization",
-              Icons.people,
-              "/manpowerOpt",
-            ),
-            _buildCard(
-              context,
-              "Andon Board",
-              Icons.policy_sharp,
-              "/andonBoardPage",
-            ),
-            _buildCard(
-              context,
-              "Process Video",
-              Icons.video_camera_back,
-              "/processVideo",
-            ),
+            // _buildCard(
+            //   context,
+            //   "Skill Matrix",
+            //   Icons.local_activity,
+            //   "/skill_matrix",
+            // ),
+            // _buildCard(
+            //   context,
+            //   "Non Productive Time",
+            //   Icons.timelapse,
+            //   "/nonProductive",
+            // ),
+            // _buildCard(
+            //   context,
+            //   "Manpower Optimization",
+            //   Icons.people,
+            //   "/manpowerOpt",
+            // ),
+            // _buildCard(
+            //   context,
+            //   "Andon Board",
+            //   Icons.policy_sharp,
+            //   "/andonBoardPage",
+            // ),
+            // _buildCard(
+            //   context,
+            //   "Process Video",
+            //   Icons.video_camera_back,
+            //   "/processVideo",
+            // ),
             // _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
           ],
         ),
@@ -84,7 +84,11 @@ class IEScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               // mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 48, color: Colors.blue),
+                Icon(
+                  icon,
+                  size: 48,
+                  color: const Color.fromARGB(255, 99, 9, 255),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   title,
