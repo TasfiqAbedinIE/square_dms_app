@@ -32,7 +32,7 @@ class _AboutScreenState extends State<AboutScreen> {
     'Non-Productive Time Tracking',
     'Standard Process Video',
     'Manpower Optimization Module',
-    'Simple Andon system for production issue analysis',
+    'Andon system with Notification push',
   ];
 
   static const List<Map<String, String>> upcomingTimeline = [

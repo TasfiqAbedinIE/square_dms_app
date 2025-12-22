@@ -227,7 +227,7 @@ class _AndonBoardPageState extends State<AndonBoardPage> {
                                 _loadIssues(); // refresh after detail
                               },
                               title: Text(
-                                issue.title,
+                                '${issue.title} - ${issue.buyer_name}',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),

@@ -90,6 +90,7 @@ class AndonIssue {
       assignedToName: map['assigned_to_name'],
       status: map['status'] ?? 'OPEN',
       priority: map['priority'] ?? 'MEDIUM',
+      buyer_name: map['buyer_name'],
 
       // 👇 IMPORTANT: convert from UTC → local
       createdAt: DateTime.parse(map['created_at']).toLocal(),

@@ -60,6 +60,7 @@ class _AndonNewIssueSheetState extends State<AndonNewIssueSheet> {
     'Printing',
     'Embroidery',
     'Washing',
+    'Finishing',
     'Maintenance',
     'Quality',
     'Planning',
