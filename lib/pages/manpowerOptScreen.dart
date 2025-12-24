@@ -5,6 +5,7 @@ import 'package:square_dms_trial/subPages/manpowerOtherAllocationPage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:square_dms_trial/database/manpower_summary_database.dart';
 import 'package:intl/intl.dart';
+import 'manpowerAllocationReportScreen.dart';
 
 class ManpowerOptimizationScreen extends StatefulWidget {
   @override
@@ -99,10 +100,16 @@ class _ManpowerOptimizationScreenState
         selectedDate: DateTime.now(),
         onAllocationChanged: _calculateOtherAllocated,
       ),
+      ManpowerAllocationReportPage(),
     ];
   }
 
-  final List<String> _titles = ['SAM EARNER', 'MINUTE ALLOCATION', 'OTHERS'];
+  final List<String> _titles = [
+    'SAM EARNER',
+    'MINUTE ALLOCATION',
+    'OTHERS',
+    'REPORT',
+  ];
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
@@ -218,6 +225,8 @@ class _ManpowerOptimizationScreenState
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        selectedItemColor: const Color.fromARGB(255, 62, 0, 248),
+        unselectedItemColor: const Color.fromARGB(255, 208, 189, 255),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.group), label: 'SAM EARNER'),
           BottomNavigationBarItem(
@@ -228,6 +237,7 @@ class _ManpowerOptimizationScreenState
             icon: Icon(Icons.more_horiz),
             label: 'OTHERS',
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'REPORT'),
         ],
       ),
     );
