@@ -20,6 +20,7 @@ class _AppSideBarState extends State<AppSideBar> {
 
   Future<void> loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       userID = prefs.getString('userID') ?? '';
       authority = prefs.getString('authority') ?? '';
@@ -31,6 +32,7 @@ class _AppSideBarState extends State<AppSideBar> {
     await prefs.setBool('isLoggedIn', false);
     await prefs.clear();
 
+    if (!context.mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
@@ -62,8 +64,8 @@ class _AppSideBarState extends State<AppSideBar> {
                   child: Icon(Icons.person, size: 20, color: Colors.deepPurple),
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  "Welcome",
+                const Text(
+                  'Welcome',
                   style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 Text(
@@ -94,14 +96,14 @@ class _AppSideBarState extends State<AppSideBar> {
               Navigator.pushReplacementNamed(context, '/IE');
             },
           ),
-          // _buildTile(
-          //   icon: Icons.build_circle,
-          //   label: 'Engineering',
-          //   onTap: () {
-          //     Navigator.pop(context);
-          //     Navigator.pushReplacementNamed(context, '/ENGINEERING');
-          //   },
-          // ),
+          _buildTile(
+            icon: Icons.build_circle,
+            label: 'Engineering',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/ENGINEERING');
+            },
+          ),
           _buildTile(
             icon: Icons.man,
             label: 'Profile',
@@ -110,8 +112,7 @@ class _AppSideBarState extends State<AppSideBar> {
               Navigator.pushReplacementNamed(context, '/profile');
             },
           ),
-
-          if (authority == "ADMIN")
+          if (authority == 'ADMIN')
             _buildTile(
               icon: Icons.admin_panel_settings,
               label: 'Admin Panel',
@@ -157,7 +158,7 @@ class _AppSideBarState extends State<AppSideBar> {
         ),
       ),
       onTap: onTap,
-      hoverColor: Colors.deepPurple.withOpacity(0.05),
+      hoverColor: Colors.deepPurple.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
     );

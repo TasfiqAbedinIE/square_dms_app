@@ -57,6 +57,10 @@ dependencies:
   hive_ce_generator: ^1.8.1
   video_player: ^2.9.5
   chewie: ^1.11.3
+  collection: ^1.19.1
+  image_picker: ^1.2.1
+  dio: ^5.9.1
+  image: ^4.5.4
 
 dev_dependencies:
   flutter_test:
@@ -126,3 +130,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

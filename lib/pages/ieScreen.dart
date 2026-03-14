@@ -12,7 +12,7 @@ class IEScreen extends StatelessWidget {
         backgroundColor: const Color.fromARGB(255, 94, 43, 255),
         foregroundColor: Colors.white,
       ),
-      drawer: AppSideBar(),
+      drawer: const AppSideBar(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: GridView.count(
@@ -20,7 +20,6 @@ class IEScreen extends StatelessWidget {
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
           children: [
-            // _buildCard(context, "Efficiency", Icons.show_chart, "/efficiency"),
             _buildCard(
               context,
               "Hourly Production",
@@ -57,7 +56,12 @@ class IEScreen extends StatelessWidget {
               Icons.video_camera_back,
               "/processVideo",
             ),
-            // _buildCard(context, "Line Plan", Icons.timeline, "/lineplan"),
+            _buildCard(
+              context,
+              "Preproduction Record",
+              Icons.fact_check_outlined,
+              "/preproductionMeeting",
+            ),
           ],
         ),
       ),
@@ -82,7 +86,6 @@ class IEScreen extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              // mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, size: 48, color: Colors.blue),
                 const SizedBox(height: 10),
@@ -102,3 +105,4 @@ class IEScreen extends StatelessWidget {
     );
   }
 }
+

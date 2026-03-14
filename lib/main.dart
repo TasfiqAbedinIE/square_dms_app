@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:square_dms_trial/pages/aboutScreen.dart';
 import 'package:square_dms_trial/pages/hourlyProductionScreen.dart';
@@ -13,6 +12,7 @@ import 'package:square_dms_trial/pages/manpowerOptScreen.dart';
 import 'package:square_dms_trial/pages/nonProductiveTimeMainScreen.dart';
 import 'package:square_dms_trial/pages/andon_board_page.dart';
 import 'package:square_dms_trial/pages/engineeringScreen.dart';
+import 'package:square_dms_trial/preproduction_meeting/preproduction_meeting_page.dart';
 
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
@@ -21,15 +21,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:square_dms_trial/service/pushnotificationservice.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-import 'package:square_dms_trial/subPages/NonProductiveTimePage.dart';
-
 const supabaseUrl = 'https://xwmfquxefxkswpslzxhq.supabase.co';
 const supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3bWZxdXhlZnhrc3dwc2x6eGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NjY0OTksImV4cCI6MjA2MDM0MjQ5OX0.IDpdZPlMojmzFDqC3Wt4QrvWtglORMRIy7xYIMmjzn8';
 
 final connectivityService = ConnectivityService();
 
-@pragma('vm:entry-point') // Needed for background handling!
+@pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('🔥 Background message received: ${message.notification?.title}');
@@ -41,15 +39,12 @@ void main() async {
   await Firebase.initializeApp();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // await requestNotificationPermission();
   await PushNotificationService.initialize();
 
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-
+  final messaging = FirebaseMessaging.instance;
   final token = await messaging.getToken();
   print('📱 Device Token: $token');
 
@@ -76,7 +71,6 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       userID = prefs.getString('userID') ?? '';
       print(userID);
-      // authority = prefs.getString('authority') ?? '';
     });
   }
 
@@ -95,9 +89,7 @@ class _MyAppState extends State<MyApp> {
               'No internet connection',
               style: TextStyle(color: Colors.white),
             ),
-            actions: const [
-              SizedBox(), // just to avoid needing action buttons
-            ],
+            actions: const [SizedBox()],
           ),
         );
       } else if (isConnected && _isOffline) {
@@ -116,7 +108,7 @@ class _MyAppState extends State<MyApp> {
       initialRoute: widget.isLoggedIn ? '/home' : '/login',
       routes: {
         '/home': (context) => DashboardScreen(),
-        '/IE': (context) => IEScreen(),
+        '/IE': (context) => const IEScreen(),
         '/admin': (context) => AdminPage(),
         '/login': (context) => const LoginScreen(),
         '/production': (context) => const HourlyProductionScreen(),
@@ -127,7 +119,8 @@ class _MyAppState extends State<MyApp> {
         '/processVideo': (context) => VideoViewerScreen(),
         '/manpowerOpt': (context) => ManpowerOptimizationScreen(),
         '/andonBoardPage': (context) => AndonBoardPage(),
-        '/ENGINEERING': (context) => EngineeringScreen(),
+        '/ENGINEERING': (context) => const EngineeringScreen(),
+        '/preproductionMeeting': (context) => const PreproductionMeetingPage(),
       },
     );
   }
