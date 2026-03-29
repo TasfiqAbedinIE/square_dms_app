@@ -48,6 +48,7 @@ class PreproductionServerSyncService {
     );
 
     final payload = {
+      'user_id': localRecord.userId,
       'sales_order': localRecord.salesOrder,
       'buyer_name': localRecord.buyerName,
       'style': localRecord.style,
@@ -116,3 +117,4 @@ class PreproductionServerSyncService {
     }
   }
 }
+

@@ -39,6 +39,7 @@ class PreproductionRecordDatabase {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS preproduction_records (
         record_id TEXT PRIMARY KEY,
+        user_id TEXT,
         sales_order TEXT NOT NULL,
         buyer_name TEXT NOT NULL,
         style TEXT NOT NULL,
@@ -71,6 +72,12 @@ class PreproductionRecordDatabase {
       )
     ''');
 
+    await _ensureColumn(
+      db,
+      tableName: 'preproduction_records',
+      columnName: 'user_id',
+      columnDefinition: 'TEXT',
+    );
     await _ensureColumn(
       db,
       tableName: 'preproduction_photos',
@@ -182,6 +189,7 @@ class PreproductionRecordDatabase {
     return db.rawQuery('''
       SELECT
         r.record_id,
+        r.user_id,
         r.sales_order,
         r.buyer_name,
         r.style,

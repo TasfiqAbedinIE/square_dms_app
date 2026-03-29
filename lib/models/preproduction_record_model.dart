@@ -78,6 +78,7 @@ class PreproductionPhoto {
 
 class PreproductionRecord {
   final String recordId;
+  final String userId;
   final String salesOrder;
   final String buyerName;
   final String style;
@@ -90,6 +91,7 @@ class PreproductionRecord {
 
   const PreproductionRecord({
     required this.recordId,
+    required this.userId,
     required this.salesOrder,
     required this.buyerName,
     required this.style,
@@ -108,6 +110,7 @@ class PreproductionRecord {
   }) {
     return PreproductionRecord(
       recordId: map['record_id']?.toString() ?? '',
+      userId: map['user_id']?.toString() ?? '',
       salesOrder: map['sales_order']?.toString() ?? '',
       buyerName: map['buyer_name']?.toString() ?? '',
       style: map['style']?.toString() ?? '',
@@ -123,6 +126,7 @@ class PreproductionRecord {
   Map<String, dynamic> toRecordMap() {
     return {
       'record_id': recordId,
+      'user_id': userId,
       'sales_order': salesOrder,
       'buyer_name': buyerName,
       'style': style,

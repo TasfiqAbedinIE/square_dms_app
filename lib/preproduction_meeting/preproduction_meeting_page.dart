@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
@@ -436,6 +437,8 @@ class _PreproductionMeetingFormTabState
     setState(() => _isSaving = true);
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userID') ?? '';
       final now = DateTime.now().toIso8601String();
       final recordId = _uuid.v4();
       final artworkSelections =
@@ -464,6 +467,7 @@ class _PreproductionMeetingFormTabState
 
       final record = PreproductionRecord(
         recordId: recordId,
+        userId: userId,
         salesOrder: _selectedSalesOrder!,
         buyerName: _selectedBuyer!,
         style: _selectedStyle!,
@@ -905,3 +909,6 @@ class PreproductionMeetingFormTab extends StatefulWidget {
   State<PreproductionMeetingFormTab> createState() =>
       _PreproductionMeetingFormTabState();
 }
+
+
+
