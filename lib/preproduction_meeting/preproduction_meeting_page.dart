@@ -301,10 +301,6 @@ class _PreproductionMeetingFormTabState
     });
   }
 
-  int get _selectedArtworkCount => _selectedPartsByArtwork.values.fold<int>(
-    0,
-    (count, parts) => count + parts.length,
-  );
 
   Future<_CapturedPhotoDraft> _compressPhoto(String sourcePath) async {
     final originalBytes = await File(sourcePath).readAsBytes();
@@ -423,16 +419,6 @@ class _PreproductionMeetingFormTabState
     final isValidForm = _formKey.currentState?.validate() ?? false;
     if (!isValidForm) return;
 
-    if (_selectedArtworkCount == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Select at least one garment part for an artwork type.',
-          ),
-        ),
-      );
-      return;
-    }
 
     setState(() => _isSaving = true);
 
@@ -909,6 +895,8 @@ class PreproductionMeetingFormTab extends StatefulWidget {
   State<PreproductionMeetingFormTab> createState() =>
       _PreproductionMeetingFormTabState();
 }
+
+
 
 
 
