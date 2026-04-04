@@ -8,7 +8,7 @@ class IEScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Industrial Engineering"),
+        title: const Text('Industrial Engineering'),
         backgroundColor: const Color.fromARGB(255, 94, 43, 255),
         foregroundColor: Colors.white,
       ),
@@ -22,46 +22,52 @@ class IEScreen extends StatelessWidget {
           children: [
             _buildCard(
               context,
-              "Hourly Production",
+              'Hourly Production',
               Icons.production_quantity_limits,
-              "/production",
+              '/production',
             ),
             _buildCard(
               context,
-              "Skill Matrix",
+              'Skill Matrix',
               Icons.local_activity,
-              "/skill_matrix",
+              '/skill_matrix',
             ),
             _buildCard(
               context,
-              "Non Productive Time",
+              'Non Productive Time',
               Icons.timelapse,
-              "/nonProductive",
+              '/nonProductive',
             ),
             _buildCard(
               context,
-              "Manpower Optimization",
+              'Manpower Optimization',
               Icons.people,
-              "/manpowerOpt",
+              '/manpowerOpt',
             ),
             _buildCard(
               context,
-              "Andon Board",
+              'Andon Board',
               Icons.policy_sharp,
-              "/andonBoardPage",
+              '/andonBoardPage',
             ),
             _buildCard(
               context,
-              "Process Video",
+              'Process Video',
               Icons.video_camera_back,
-              "/processVideo",
+              '/processVideo',
             ),
             _buildCard(
               context,
-              "Preproduction Record",
+              'Preproduction Record',
               Icons.fact_check_outlined,
-              "/preproductionMeeting",
+              '/preproductionMeeting',
             ),
+            // _buildCard(
+            //   context,
+            //   '5S Audit',
+            //   Icons.rule_folder_outlined,
+            //   '/fiveSAudit',
+            // ),
           ],
         ),
       ),
@@ -105,4 +111,3 @@ class IEScreen extends StatelessWidget {
     );
   }
 }
-

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
@@ -15,6 +15,58 @@ import 'package:uuid/uuid.dart';
 import 'package:square_dms_trial/database/preproduction_record_database.dart';
 import 'package:square_dms_trial/models/preproduction_record_model.dart';
 import 'package:square_dms_trial/preproduction_meeting/preproduction_report_page.dart';
+Map<String, dynamic> _compressPhotoInBackground(Map<String, dynamic> args) {
+  final sourcePath = args['sourcePath'] as String;
+  final maxPhotoBytes = args['maxPhotoBytes'] as int;
+  final originalBytes = File(sourcePath).readAsBytesSync();
+  final originalImage = img.decodeImage(originalBytes);
+
+  if (originalImage == null) {
+    throw Exception('Unable to process the selected photo.');
+  }
+
+  img.Image workingImage = originalImage;
+  Uint8List? compressedBytes;
+
+  while (true) {
+    for (final quality in [88, 80, 72, 64, 56, 48, 40, 32, 24, 18, 12]) {
+      final jpgBytes = Uint8List.fromList(
+        img.encodeJpg(workingImage, quality: quality),
+      );
+      if (jpgBytes.lengthInBytes <= maxPhotoBytes) {
+        compressedBytes = jpgBytes;
+        break;
+      }
+    }
+
+    if (compressedBytes != null) break;
+
+    final nextWidth = (workingImage.width * 0.85).round();
+    final nextHeight = (workingImage.height * 0.85).round();
+    if (nextWidth < 320 || nextHeight < 320) {
+      break;
+    }
+
+    workingImage = img.copyResize(
+      originalImage,
+      width: nextWidth,
+      height: nextHeight,
+      interpolation: img.Interpolation.average,
+    );
+  }
+
+  if (compressedBytes == null || compressedBytes.lengthInBytes > maxPhotoBytes) {
+    throw Exception('Could not compress the photo below 1 MB.');
+  }
+
+  return {
+    'compressedBytes': compressedBytes,
+    'photoDataBase64': base64Encode(compressedBytes),
+    'photoSizeBytes': compressedBytes.lengthInBytes,
+  };
+}
+
+
 
 class PreproductionMeetingPage extends StatefulWidget {
   const PreproductionMeetingPage({super.key});
@@ -113,11 +165,13 @@ class _PreproductionMeetingPageState extends State<PreproductionMeetingPage> {
 
 class _CapturedPhotoDraft {
   final String localPath;
+  final Uint8List compressedBytes;
   final String photoDataBase64;
   final int photoSizeBytes;
 
   const _CapturedPhotoDraft({
     required this.localPath,
+    required this.compressedBytes,
     required this.photoDataBase64,
     required this.photoSizeBytes,
   });
@@ -167,6 +221,7 @@ class _PreproductionMeetingFormTabState
 
   bool _isLoadingSalesOrders = true;
   bool _isSaving = false;
+  bool _isProcessingPhotos = false;
   bool _canStartNewRecord = false;
 
   @override
@@ -301,59 +356,95 @@ class _PreproductionMeetingFormTabState
     });
   }
 
-
   Future<_CapturedPhotoDraft> _compressPhoto(String sourcePath) async {
-    final originalBytes = await File(sourcePath).readAsBytes();
-    final originalImage = img.decodeImage(originalBytes);
+    final result = await compute<Map<String, dynamic>, Map<String, dynamic>>(
+      _compressPhotoInBackground,
+      {
+        'sourcePath': sourcePath,
+        'maxPhotoBytes': _maxPhotoBytes,
+      },
+    );
 
-    if (originalImage == null) {
-      throw Exception('Unable to process the selected photo.');
-    }
-
-    img.Image workingImage = originalImage;
-    Uint8List? compressedBytes;
-
-    while (true) {
-      for (final quality in [88, 80, 72, 64, 56, 48, 40, 32, 24, 18, 12]) {
-        final jpgBytes = Uint8List.fromList(
-          img.encodeJpg(workingImage, quality: quality),
-        );
-        if (jpgBytes.lengthInBytes <= _maxPhotoBytes) {
-          compressedBytes = jpgBytes;
-          break;
-        }
-      }
-
-      if (compressedBytes != null) break;
-
-      final nextWidth = (workingImage.width * 0.85).round();
-      final nextHeight = (workingImage.height * 0.85).round();
-      if (nextWidth < 320 || nextHeight < 320) {
-        break;
-      }
-
-      workingImage = img.copyResize(
-        originalImage,
-        width: nextWidth,
-        height: nextHeight,
-        interpolation: img.Interpolation.average,
-      );
-    }
-
-    if (compressedBytes == null ||
-        compressedBytes.lengthInBytes > _maxPhotoBytes) {
-      throw Exception('Could not compress the photo below 1 MB.');
-    }
-
-    final base64Data = base64Encode(compressedBytes);
+    final compressedBytes = result['compressedBytes'] as Uint8List;
     return _CapturedPhotoDraft(
       localPath: sourcePath,
-      photoDataBase64: base64Data,
-      photoSizeBytes: compressedBytes.lengthInBytes,
+      compressedBytes: compressedBytes,
+      photoDataBase64: result['photoDataBase64'] as String,
+      photoSizeBytes: result['photoSizeBytes'] as int,
     );
   }
 
+  Future<_CapturedPhotoDraft> _storeCompressedPhoto(String sourcePath) async {
+    final compressedDraft = await _compressPhoto(sourcePath);
+    final directory = await getApplicationDocumentsDirectory();
+    final photoDirectory = Directory(
+      path.join(directory.path, 'preproduction_photos'),
+    );
+
+    if (!await photoDirectory.exists()) {
+      await photoDirectory.create(recursive: true);
+    }
+
+    final baseName = path.basenameWithoutExtension(sourcePath);
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${baseName}_${_uuid.v4().substring(0, 8)}.jpg';
+    final targetPath = path.join(photoDirectory.path, fileName);
+    await File(
+      targetPath,
+    ).writeAsBytes(compressedDraft.compressedBytes, flush: true);
+
+    return _CapturedPhotoDraft(
+      localPath: targetPath,
+      compressedBytes: compressedDraft.compressedBytes,
+      photoDataBase64: compressedDraft.photoDataBase64,
+      photoSizeBytes: compressedDraft.photoSizeBytes,
+    );
+  }
+
+  Future<void> _addPhotosFromPaths(List<String> sourcePaths) async {
+    if (sourcePaths.isEmpty) return;
+
+    if (mounted) {
+      setState(() => _isProcessingPhotos = true);
+    }
+
+    final addedPhotos = <_CapturedPhotoDraft>[];
+    final failedPhotos = <String>[];
+
+    try {
+      for (final sourcePath in sourcePaths) {
+        try {
+          final storedDraft = await _storeCompressedPhoto(sourcePath);
+          addedPhotos.add(storedDraft);
+        } catch (_) {
+          failedPhotos.add(path.basename(sourcePath));
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _photos = [..._photos, ...addedPhotos];
+      });
+
+      if (failedPhotos.isNotEmpty) {
+        final failureMessage =
+            failedPhotos.length == 1
+                ? '1 photo could not be processed.'
+                : '${failedPhotos.length} photos could not be processed.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failureMessage)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingPhotos = false);
+      }
+    }
+  }
+
   Future<void> _capturePhoto() async {
+    if (_isProcessingPhotos) return;
+
     final permission = await Permission.camera.request();
     if (!permission.isGranted) {
       if (!mounted) return;
@@ -370,43 +461,24 @@ class _PreproductionMeetingFormTabState
     final image = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 100,
+      requestFullMetadata: false,
     );
 
     if (image == null) return;
 
-    try {
-      final compressedDraft = await _compressPhoto(image.path);
-      final directory = await getApplicationDocumentsDirectory();
-      final photoDirectory = Directory(
-        path.join(directory.path, 'preproduction_photos'),
-      );
+    await _addPhotosFromPaths([image.path]);
+  }
 
-      if (!await photoDirectory.exists()) {
-        await photoDirectory.create(recursive: true);
-      }
+  Future<void> _pickGalleryPhotos() async {
+    if (_isProcessingPhotos) return;
 
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
-      final targetPath = path.join(photoDirectory.path, fileName);
-      final savedPhoto = await File(image.path).copy(targetPath);
+    final images = await _picker.pickMultiImage(
+      imageQuality: 100,
+      requestFullMetadata: false,
+    );
+    if (images.isEmpty) return;
 
-      if (!mounted) return;
-      setState(() {
-        _photos = [
-          ..._photos,
-          _CapturedPhotoDraft(
-            localPath: savedPhoto.path,
-            photoDataBase64: compressedDraft.photoDataBase64,
-            photoSizeBytes: compressedDraft.photoSizeBytes,
-          ),
-        ];
-      });
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Photo processing failed: $error')),
-      );
-    }
+    await _addPhotosFromPaths(images.map((image) => image.path).toList());
   }
 
   void _removePhoto(String photoPath) {
@@ -414,6 +486,7 @@ class _PreproductionMeetingFormTabState
       _photos = _photos.where((photo) => photo.localPath != photoPath).toList();
     });
   }
+
 
   Future<void> _saveRecord() async {
     final isValidForm = _formKey.currentState?.validate() ?? false;
@@ -703,19 +776,54 @@ class _PreproductionMeetingFormTabState
                 ),
               ),
             ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: _brand,
-                foregroundColor: Colors.white,
-                visualDensity: VisualDensity.compact,
-              ),
-              onPressed: _capturePhoto,
-              icon: const Icon(Icons.photo_camera_outlined),
-              label: const Text('Camera'),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _brand,
+                    side: const BorderSide(color: _brand),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: _isProcessingPhotos ? null : _pickGalleryPhotos,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Gallery'),
+                ),
+                const SizedBox(width: 6),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _brand,
+                    foregroundColor: Colors.white,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: _isProcessingPhotos ? null : _capturePhoto,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Camera'),
+                ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 6),
+        if (_isProcessingPhotos) ...[
+          Row(
+            children: const [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Processing photo(s). Please wait...',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+        ],
         Text(
           'Each photo is compressed below 1 MB before save and upload.',
           style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
@@ -895,6 +1003,9 @@ class PreproductionMeetingFormTab extends StatefulWidget {
   State<PreproductionMeetingFormTab> createState() =>
       _PreproductionMeetingFormTabState();
 }
+
+
+
 
 
 

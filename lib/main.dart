@@ -13,6 +13,7 @@ import 'package:square_dms_trial/pages/nonProductiveTimeMainScreen.dart';
 import 'package:square_dms_trial/pages/andon_board_page.dart';
 import 'package:square_dms_trial/pages/engineeringScreen.dart';
 import 'package:square_dms_trial/preproduction_meeting/preproduction_meeting_page.dart';
+import 'package:square_dms_trial/five_s_audit/five_s_audit_module_page.dart';
 
 import 'package:square_dms_trial/loginScreen.dart';
 import 'package:square_dms_trial/service/connectivity_service.dart';
@@ -121,6 +122,7 @@ class _MyAppState extends State<MyApp> {
         '/andonBoardPage': (context) => AndonBoardPage(),
         '/ENGINEERING': (context) => const EngineeringScreen(),
         '/preproductionMeeting': (context) => const PreproductionMeetingPage(),
+        '/fiveSAudit': (context) => const FiveSAuditModulePage(),
       },
     );
   }
