@@ -332,6 +332,10 @@ class _FiveSAuditReportPageState extends State<FiveSAuditReportPage> {
             const Divider(height: 20),
             _detailRow('Audit Date', _formatDate(summary.auditDate)),
             _detailRow('Auditor', summary.auditorName),
+            _detailRow(
+              'Audit Type',
+              summary.isReaudit ? 'Re-audit' : 'Main audit',
+            ),
             _detailRow('Responsible', summary.productionRepresentative),
             _detailRow('Score', '${summary.totalScore} / ${summary.maxScore}'),
             _detailRow(

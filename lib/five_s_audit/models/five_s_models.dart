@@ -242,6 +242,7 @@ class FiveSAuditRecord {
   final String updatedAt;
   final String? uploadedAt;
   final String? remarks;
+  final bool isReaudit;
   final List<FiveSAuditDetail> details;
   final List<FiveSAuditPhoto> photos;
 
@@ -265,6 +266,7 @@ class FiveSAuditRecord {
     required this.updatedAt,
     required this.uploadedAt,
     required this.remarks,
+    required this.isReaudit,
     required this.details,
     required this.photos,
   });
@@ -295,6 +297,7 @@ class FiveSAuditRecord {
       updatedAt: map['updated_at']?.toString() ?? '',
       uploadedAt: map['uploaded_at']?.toString(),
       remarks: map['remarks']?.toString(),
+      isReaudit: _readBool(map['is_reaudit']),
       details: details,
       photos: photos,
     );
@@ -321,6 +324,7 @@ class FiveSAuditRecord {
       'updated_at': updatedAt,
       'uploaded_at': uploadedAt,
       'remarks': remarks,
+      'is_reaudit': isReaudit ? 1 : 0,
     };
   }
 }
@@ -340,6 +344,7 @@ class FiveSAuditSummary {
   final String createdAt;
   final int issueCount;
   final int photoCount;
+  final bool isReaudit;
 
   const FiveSAuditSummary({
     required this.auditId,
@@ -356,6 +361,7 @@ class FiveSAuditSummary {
     required this.createdAt,
     required this.issueCount,
     required this.photoCount,
+    required this.isReaudit,
   });
 
   factory FiveSAuditSummary.fromMap(Map<String, dynamic> map) {
@@ -375,6 +381,7 @@ class FiveSAuditSummary {
       createdAt: map['created_at']?.toString() ?? '',
       issueCount: _readInt(map['issue_count']),
       photoCount: _readInt(map['photo_count']),
+      isReaudit: _readBool(map['is_reaudit']),
     );
   }
 }

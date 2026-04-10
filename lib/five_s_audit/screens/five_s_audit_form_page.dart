@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
@@ -18,6 +17,58 @@ import 'package:square_dms_trial/five_s_audit/screens/five_s_audit_detail_page.d
 import 'package:square_dms_trial/five_s_audit/widgets/five_s_criterion_score_row.dart';
 import 'package:square_dms_trial/five_s_audit/widgets/five_s_signature_pad_section.dart';
 import 'package:square_dms_trial/service/five_s_audit_supabase_service.dart';
+
+Map<String, dynamic> _compressFiveSPhotoInBackground(
+  Map<String, dynamic> args,
+) {
+  final sourcePath = args['sourcePath'] as String;
+  final maxPhotoBytes = args['maxPhotoBytes'] as int;
+  final originalBytes = File(sourcePath).readAsBytesSync();
+  final originalImage = img.decodeImage(originalBytes);
+
+  if (originalImage == null) {
+    throw Exception('Unable to process selected image.');
+  }
+
+  img.Image workingImage = originalImage;
+  Uint8List? compressedBytes;
+
+  while (true) {
+    for (final quality in [88, 80, 72, 64, 56, 48, 40, 32, 24, 18, 12]) {
+      final jpgBytes = Uint8List.fromList(
+        img.encodeJpg(workingImage, quality: quality),
+      );
+      if (jpgBytes.lengthInBytes <= maxPhotoBytes) {
+        compressedBytes = jpgBytes;
+        break;
+      }
+    }
+
+    if (compressedBytes != null) break;
+
+    final nextWidth = (workingImage.width * 0.85).round();
+    final nextHeight = (workingImage.height * 0.85).round();
+    if (nextWidth < 320 || nextHeight < 320) break;
+
+    workingImage = img.copyResize(
+      originalImage,
+      width: nextWidth,
+      height: nextHeight,
+      interpolation: img.Interpolation.average,
+    );
+  }
+
+  if (compressedBytes == null ||
+      compressedBytes.lengthInBytes > maxPhotoBytes) {
+    throw Exception('Could not compress the photo below 1 MB.');
+  }
+
+  return {
+    'compressedBytes': compressedBytes,
+    'photoDataBase64': base64Encode(compressedBytes),
+    'photoSizeBytes': compressedBytes.lengthInBytes,
+  };
+}
 
 class FiveSAuditFormPage extends StatefulWidget {
   final VoidCallback? onAuditSaved;
@@ -81,10 +132,12 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
 
   FiveSDepartment? _selectedDepartment;
   String? _selectedLine;
+  bool _isReaudit = false;
   bool _isBootstrapping = true;
   bool _isLoadingCriteria = false;
   bool _isSyncingMaster = false;
   bool _isSaving = false;
+  bool _isProcessingPhotos = false;
 
   @override
   void initState() {
@@ -127,7 +180,6 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
         _userContext = userContext;
         _departments = departments;
         _categories = categories;
-        _isBootstrapping = false;
         _isBootstrapping = false;
       });
       widget.onLastSyncChanged?.call(lastSyncAt);
@@ -288,7 +340,21 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
           .putIfAbsent(criterion.categoryCode, () => <FiveSCriterion>[])
           .add(criterion);
     }
-    return grouped;
+
+    final ordered = <String, List<FiveSCriterion>>{};
+    for (final category in _categories) {
+      final items = grouped.remove(category.code);
+      if (items != null && items.isNotEmpty) {
+        ordered[category.code] = items;
+      }
+    }
+
+    final remainingCodes = grouped.keys.toList()..sort();
+    for (final code in remainingCodes) {
+      ordered[code] = grouped[code]!;
+    }
+
+    return ordered;
   }
 
   String _friendlyCategory(String code) {
@@ -300,46 +366,13 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
     return code == 'SET_IN_ORDER' ? 'Set in Order' : code;
   }
 
-  Future<_CapturedPhotoDraft> _compressAndPersistPhoto(XFile image) async {
-    final originalBytes = await File(image.path).readAsBytes();
-    final originalImage = img.decodeImage(originalBytes);
-    if (originalImage == null) {
-      throw Exception('Unable to process selected image.');
-    }
+  Future<_CapturedPhotoDraft> _storeCompressedPhoto(String sourcePath) async {
+    final result = await compute<Map<String, dynamic>, Map<String, dynamic>>(
+      _compressFiveSPhotoInBackground,
+      {'sourcePath': sourcePath, 'maxPhotoBytes': _maxPhotoBytes},
+    );
 
-    img.Image workingImage = originalImage;
-    Uint8List? compressedBytes;
-
-    while (true) {
-      for (final quality in [88, 80, 72, 64, 56, 48, 40, 32, 24, 18, 12]) {
-        final jpgBytes = Uint8List.fromList(
-          img.encodeJpg(workingImage, quality: quality),
-        );
-        if (jpgBytes.lengthInBytes <= _maxPhotoBytes) {
-          compressedBytes = jpgBytes;
-          break;
-        }
-      }
-
-      if (compressedBytes != null) break;
-
-      final nextWidth = (workingImage.width * 0.85).round();
-      final nextHeight = (workingImage.height * 0.85).round();
-      if (nextWidth < 320 || nextHeight < 320) break;
-
-      workingImage = img.copyResize(
-        originalImage,
-        width: nextWidth,
-        height: nextHeight,
-        interpolation: img.Interpolation.average,
-      );
-    }
-
-    if (compressedBytes == null ||
-        compressedBytes.lengthInBytes > _maxPhotoBytes) {
-      throw Exception('Could not compress the photo below 1 MB.');
-    }
-
+    final compressedBytes = result['compressedBytes'] as Uint8List;
     final directory = await getApplicationDocumentsDirectory();
     final photoDirectory = Directory(
       p.join(directory.path, 'five_s_audit_photos'),
@@ -349,18 +382,80 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
     }
 
     final fileName =
-        '${DateTime.now().millisecondsSinceEpoch}_${p.basenameWithoutExtension(image.name)}.jpg';
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basenameWithoutExtension(sourcePath)}_${_uuid.v4().substring(0, 8)}.jpg';
     final targetPath = p.join(photoDirectory.path, fileName);
     await File(targetPath).writeAsBytes(compressedBytes, flush: true);
 
     return _CapturedPhotoDraft(
       localPath: targetPath,
-      photoDataBase64: base64Encode(compressedBytes),
-      photoSizeBytes: compressedBytes.lengthInBytes,
+      photoDataBase64: result['photoDataBase64'] as String,
+      photoSizeBytes: result['photoSizeBytes'] as int,
     );
   }
 
-  Future<void> _pickPhoto(ImageSource source) async {
+  Future<void> _addPhotosFromPaths(List<String> sourcePaths) async {
+    if (sourcePaths.isEmpty || _isProcessingPhotos) return;
+
+    final remaining = _maxPhotoCount - _photos.length;
+    if (remaining <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 3 issue photos are allowed.')),
+      );
+      return;
+    }
+
+    final limitedPaths = sourcePaths.take(remaining).toList();
+    if (mounted) {
+      setState(() => _isProcessingPhotos = true);
+    }
+
+    final addedPhotos = <_CapturedPhotoDraft>[];
+    var failedCount = 0;
+
+    try {
+      for (final sourcePath in limitedPaths) {
+        try {
+          final storedPhoto = await _storeCompressedPhoto(sourcePath);
+          addedPhotos.add(storedPhoto);
+        } catch (_) {
+          failedCount++;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _photos = [..._photos, ...addedPhotos];
+      });
+
+      if (sourcePaths.length > remaining) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Only $remaining more photo${remaining == 1 ? '' : 's'} can be added.',
+            ),
+          ),
+        );
+      } else if (failedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failedCount == 1
+                  ? '1 photo could not be processed.'
+                  : '$failedCount photos could not be processed.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingPhotos = false);
+      }
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    if (_isProcessingPhotos) return;
+
     if (_photos.length >= _maxPhotoCount) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Maximum 3 issue photos are allowed.')),
@@ -368,35 +463,48 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
       return;
     }
 
-    if (source == ImageSource.camera) {
-      final permission = await Permission.camera.request();
-      if (!permission.isGranted) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Camera permission is required.')),
-        );
-        return;
-      }
-    }
-
-    final image = await _picker.pickImage(source: source, imageQuality: 100);
-    if (image == null) return;
-
-    try {
-      final photo = await _compressAndPersistPhoto(image);
-      if (!mounted) return;
-      setState(() {
-        _photos = [..._photos, photo];
-      });
-    } catch (error) {
+    final permission = await Permission.camera.request();
+    if (!permission.isGranted) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Photo processing failed: $error')),
+        const SnackBar(content: Text('Camera permission is required.')),
       );
+      return;
     }
+
+    final image = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 100,
+      requestFullMetadata: false,
+    );
+    if (image == null) return;
+
+    await _addPhotosFromPaths([image.path]);
+  }
+
+  Future<void> _pickGalleryPhotos() async {
+    if (_isProcessingPhotos) return;
+
+    final remaining = _maxPhotoCount - _photos.length;
+    if (remaining <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 3 issue photos are allowed.')),
+      );
+      return;
+    }
+
+    final images = await _picker.pickMultiImage(
+      imageQuality: 100,
+      requestFullMetadata: false,
+    );
+    if (images.isEmpty) return;
+
+    await _addPhotosFromPaths(images.map((image) => image.path).toList());
   }
 
   Future<void> _choosePhotoSource() async {
+    if (_isProcessingPhotos) return;
+
     await showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
@@ -409,7 +517,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
                 title: const Text('Capture from Camera'),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _pickPhoto(ImageSource.camera);
+                  _capturePhoto();
                 },
               ),
               ListTile(
@@ -417,7 +525,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
                 title: const Text('Choose from Gallery'),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  _pickPhoto(ImageSource.gallery);
+                  _pickGalleryPhotos();
                 },
               ),
             ],
@@ -529,7 +637,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
       final metrics = _calculateMetrics();
       final signature = await _persistSignature(auditId);
       final areaLineValue =
-          _selectedDepartment!.lineRequired
+          _lineOptions.isNotEmpty
               ? ((_selectedLine ?? _areaLineController.text).trim())
               : _areaLineController.text.trim();
 
@@ -578,6 +686,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
         updatedAt: now,
         uploadedAt: null,
         remarks: null,
+        isReaudit: _isReaudit,
         details: details,
         photos: photos,
       );
@@ -612,6 +721,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
     setState(() {
       _selectedDepartment = null;
       _selectedLine = null;
+      _isReaudit = false;
       _criteria = [];
       _lineOptions = [];
       _selectedScores.clear();
@@ -637,13 +747,15 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
 
   Widget _buildAuditHeaderSection() {
     final currentDate = DateFormat('dd MMM yyyy').format(DateTime.now());
-    final requiresLine = _selectedDepartment?.lineRequired ?? false;
     final areaLabel = _selectedDepartment?.defaultAreaType ?? 'Area';
+    final usesPresetAreaOptions = _lineOptions.isNotEmpty;
+    final selectionLabel =
+        areaLabel.toLowerCase() == 'line' ? 'Line' : areaLabel;
 
     return _buildSection(
       title: 'Audit Setup',
       subtitle:
-          'Select department, line or area, and responsible production person.',
+          'Select department, area or line, audit type, and responsible production person.',
       children: [
         DropdownButtonFormField<FiveSDepartment>(
           initialValue: _selectedDepartment,
@@ -659,31 +771,31 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
           validator: (value) => value == null ? 'Select department' : null,
         ),
         const SizedBox(height: 10),
-        if (requiresLine && _lineOptions.isNotEmpty)
+        if (usesPresetAreaOptions)
           DropdownButtonFormField<String>(
             initialValue: _selectedLine,
-            decoration: _inputDecoration('Line'),
+            decoration: _inputDecoration(selectionLabel),
             items:
-                _lineOptions.map((line) {
+                _lineOptions.map((option) {
                   return DropdownMenuItem<String>(
-                    value: line,
-                    child: Text(line),
+                    value: option,
+                    child: Text(option),
                   );
                 }).toList(),
             onChanged: (value) => setState(() => _selectedLine = value),
             validator:
                 (value) =>
-                    requiresLine && (value == null || value.isEmpty)
-                        ? 'Select line'
+                    usesPresetAreaOptions && (value == null || value.isEmpty)
+                        ? 'Select ${selectionLabel.toLowerCase()}'
                         : null,
           )
         else
           TextFormField(
             controller: _areaLineController,
-            decoration: _inputDecoration(requiresLine ? 'Line' : areaLabel),
+            decoration: _inputDecoration(selectionLabel),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Enter ${requiresLine ? 'line' : areaLabel.toLowerCase()}';
+                return 'Enter ${selectionLabel.toLowerCase()}';
               }
               return null;
             },
@@ -707,6 +819,33 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: _fieldFill,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Re-audit',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _brand,
+                  ),
+                ),
+              ),
+              Switch.adaptive(
+                value: _isReaudit,
+                activeTrackColor: _brand,
+                onChanged: (value) => setState(() => _isReaudit = value),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 10),
         TextFormField(
@@ -842,9 +981,15 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
   Widget _buildPhotoSection() {
     return _buildSection(
       title: 'Photo Evidence',
-      subtitle: 'Add up to 3 issue photos. Images stay compressed below 1 MB.',
+      subtitle:
+          _isProcessingPhotos
+              ? 'Processing photos... keep this screen open until compression finishes.'
+              : 'Add up to 3 issue photos. Images stay compressed below 1 MB.',
       trailing: TextButton.icon(
-        onPressed: _photos.length >= _maxPhotoCount ? null : _choosePhotoSource,
+        onPressed:
+            _isProcessingPhotos || _photos.length >= _maxPhotoCount
+                ? null
+                : _choosePhotoSource,
         icon: const Icon(Icons.add_a_photo_outlined),
         label: Text('${_photos.length}/$_maxPhotoCount'),
       ),
@@ -881,21 +1026,25 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
                         top: 6,
                         right: 6,
                         child: InkWell(
-                          onTap: () async {
-                            final file = File(photo.localPath);
-                            if (await file.exists()) {
-                              await file.delete();
-                            }
-                            setState(() {
-                              _photos =
-                                  _photos
-                                      .where(
-                                        (item) =>
-                                            item.localPath != photo.localPath,
-                                      )
-                                      .toList();
-                            });
-                          },
+                          onTap:
+                              _isProcessingPhotos
+                                  ? null
+                                  : () async {
+                                    final file = File(photo.localPath);
+                                    if (await file.exists()) {
+                                      await file.delete();
+                                    }
+                                    setState(() {
+                                      _photos =
+                                          _photos
+                                              .where(
+                                                (item) =>
+                                                    item.localPath !=
+                                                    photo.localPath,
+                                              )
+                                              .toList();
+                                    });
+                                  },
                           child: Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
@@ -979,7 +1128,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            onPressed: _isSaving ? null : _submitAudit,
+            onPressed: _isSaving || _isProcessingPhotos ? null : _submitAudit,
             icon:
                 _isSaving
                     ? const SizedBox(
@@ -1004,7 +1153,7 @@ class _FiveSAuditFormPageState extends State<FiveSAuditFormPage> {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-          onPressed: _isSaving ? null : _resetForm,
+          onPressed: _isSaving || _isProcessingPhotos ? null : _resetForm,
           child: const Text('Reset'),
         ),
       ],

@@ -77,56 +77,31 @@ class FiveSAuditSupabaseService {
   Future<List<String>> fetchDepartmentLineOptions(
     FiveSDepartment department,
   ) async {
+    if (_isCuttingDepartment(department)) {
+      return _cuttingTableOptions();
+    }
+
     if (!department.lineRequired) {
       return const <String>[];
     }
 
-    final userContext = await fetchCurrentUserContext();
-    if (userContext.isMasterUser) {
-      return _allLineOptions();
-    }
-
-    final normalized = <String>{};
-    for (final area in userContext.workingAreas) {
-      normalized.addAll(_expandArea(area));
-    }
-
-    final sorted =
-        normalized.toList()
-          ..sort((a, b) => _lineNumber(a).compareTo(_lineNumber(b)));
-    return sorted;
+    return _allLineOptions();
   }
 
   List<String> _allLineOptions() {
     return List<String>.generate(124, (index) => 'Line ${index + 1}');
   }
 
-  List<String> _expandArea(String rawArea) {
-    final trimmed = rawArea.trim();
-    if (trimmed.isEmpty) {
-      return const <String>[];
-    }
-
-    final numbers =
-        RegExp(
-          r'\d+',
-        ).allMatches(trimmed).map((m) => int.parse(m.group(0)!)).toList();
-    if (numbers.length >= 2) {
-      final start = numbers.first;
-      final end = numbers.last;
-      return [for (int line = start; line <= end; line++) 'Line $line'];
-    }
-    if (numbers.length == 1) {
-      return ['Line ${numbers.first}'];
-    }
-    return [trimmed];
+  List<String> _cuttingTableOptions() {
+    return <String>[
+      ...List<String>.generate(19, (index) => 'Table ${index + 1}'),
+      'Y/D Section',
+    ];
   }
 
-  int _lineNumber(String label) {
-    final match = RegExp(r'\d+').firstMatch(label);
-    if (match == null) {
-      return 9999;
-    }
-    return int.tryParse(match.group(0)!) ?? 9999;
+  bool _isCuttingDepartment(FiveSDepartment department) {
+    final departmentName = department.departmentName.toLowerCase();
+    final areaType = (department.defaultAreaType ?? '').toLowerCase();
+    return departmentName.contains('cutting') || areaType.contains('table');
   }
 }

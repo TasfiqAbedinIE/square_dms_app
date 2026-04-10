@@ -77,6 +77,7 @@ class FiveSAuditServerSyncService {
       'rating_band': record.ratingBand,
       'remarks': record.remarks,
       'created_at': record.createdAt,
+      'is_reaudit': record.isReaudit,
       'details': record.details.map((detail) => detail.toMap()).toList(),
       'photos':
           record.photos

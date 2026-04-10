@@ -83,6 +83,7 @@ class FiveSAuditDatabase {
         max_score INTEGER NOT NULL,
         percentage REAL NOT NULL,
         rating_band TEXT NOT NULL,
+        is_reaudit INTEGER NOT NULL DEFAULT 0,
         sync_status TEXT NOT NULL DEFAULT 'pending',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -136,6 +137,12 @@ class FiveSAuditDatabase {
       tableName: 'five_s_audit_headers',
       columnName: 'remarks',
       columnDefinition: 'TEXT',
+    );
+    await _ensureColumn(
+      db,
+      tableName: 'five_s_audit_headers',
+      columnName: 'is_reaudit',
+      columnDefinition: 'INTEGER NOT NULL DEFAULT 0',
     );
   }
 
@@ -237,11 +244,9 @@ class FiveSAuditDatabase {
     String departmentId,
   ) async {
     final db = await database;
-    final rows = await db.query(
-      'five_s_criteria',
-      where: 'department_id = ? AND is_active = 1',
-      whereArgs: [departmentId],
-      orderBy: 'sort_order ASC, title ASC',
+    final rows = await db.rawQuery(
+      'SELECT c.* FROM five_s_criteria c LEFT JOIN five_s_categories cat ON cat.code = c.category_code WHERE c.department_id = ? AND c.is_active = 1 ORDER BY COALESCE(cat.sort_order, 999), c.sort_order ASC, c.title ASC',
+      [departmentId],
     );
     return rows.map(FiveSCriterion.fromMap).toList();
   }
@@ -333,6 +338,7 @@ class FiveSAuditDatabase {
         h.percentage,
         h.rating_band,
         h.sync_status,
+        h.is_reaudit,
         h.created_at,
         (
           SELECT COUNT(*)

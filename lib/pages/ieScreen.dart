@@ -62,12 +62,12 @@ class IEScreen extends StatelessWidget {
               Icons.fact_check_outlined,
               '/preproductionMeeting',
             ),
-            // _buildCard(
-            //   context,
-            //   '5S Audit',
-            //   Icons.rule_folder_outlined,
-            //   '/fiveSAudit',
-            // ),
+            _buildCard(
+              context,
+              '5S Audit',
+              Icons.rule_folder_outlined,
+              '/fiveSAudit',
+            ),
           ],
         ),
       ),
