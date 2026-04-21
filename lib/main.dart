@@ -6,6 +6,7 @@ import 'package:square_dms_trial/pages/homeScreen.dart';
 import 'package:square_dms_trial/pages/adminScreen.dart';
 import 'package:square_dms_trial/pages/ieScreen.dart';
 import 'package:square_dms_trial/pages/skillMatrixScreen.dart';
+import 'package:square_dms_trial/pages/sewingProductionReportScreen.dart';
 import 'package:square_dms_trial/pages/profileScreen.dart';
 import 'package:square_dms_trial/pages/processVideoScreen.dart';
 import 'package:square_dms_trial/pages/manpowerOptScreen.dart';
@@ -123,6 +124,8 @@ class _MyAppState extends State<MyApp> {
         '/ENGINEERING': (context) => const EngineeringScreen(),
         '/preproductionMeeting': (context) => const PreproductionMeetingPage(),
         '/fiveSAudit': (context) => const FiveSAuditModulePage(),
+        '/sewingProductionReport':
+            (context) => const SewingProductionReportScreen(),
       },
     );
   }

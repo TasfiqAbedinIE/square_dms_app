@@ -92,6 +92,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
       'Store',
       'Fabrics Unit',
       'T & D',
+      'Washing',
     ];
 
     showModalBottomSheet(
@@ -488,6 +489,8 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
       'Embroidery',
       'Store',
       'Fabrics Unit',
+      'T & D',
+      'Washing',
     ];
 
     showModalBottomSheet(

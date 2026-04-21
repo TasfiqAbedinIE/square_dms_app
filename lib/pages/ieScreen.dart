@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:square_dms_trial/sidebar/side_bar.dart';
 
 class IEScreen extends StatelessWidget {
@@ -68,6 +69,12 @@ class IEScreen extends StatelessWidget {
               Icons.rule_folder_outlined,
               '/fiveSAudit',
             ),
+            _buildCard(
+              context,
+              'Sewing Production Report',
+              Icons.assessment_outlined,
+              '/sewingProductionReport',
+            ),
           ],
         ),
       ),
@@ -98,7 +105,7 @@ class IEScreen extends StatelessWidget {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: GoogleFonts.lexend(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),

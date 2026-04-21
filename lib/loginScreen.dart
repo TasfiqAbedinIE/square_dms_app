@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 80),
-              Text("Version - 2.0.0", style: GoogleFonts.lexend()),
+              Text("Version - 2.0.4", style: GoogleFonts.lexend()),
               SizedBox(height: 10),
               Text(
                 "Developed By - IE & Workstudy Department",
