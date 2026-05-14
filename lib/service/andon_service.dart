@@ -1,6 +1,38 @@
 // lib/services/andon_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/andon_issue_model.dart';
+import 'pushnotificationsend.dart';
+
+class AndonMentionUser {
+  final String orgId;
+  final String? name;
+  final String? dept;
+  final String? designation;
+
+  const AndonMentionUser({
+    required this.orgId,
+    this.name,
+    this.dept,
+    this.designation,
+  });
+
+  String get displayName {
+    final trimmedName = name?.trim();
+    if (trimmedName != null && trimmedName.isNotEmpty) return trimmedName;
+    return orgId;
+  }
+
+  String get mentionToken => '@$orgId';
+
+  factory AndonMentionUser.fromMap(Map<String, dynamic> map) {
+    return AndonMentionUser(
+      orgId: map['org_id']?.toString() ?? '',
+      name: map['name']?.toString(),
+      dept: map['dept']?.toString(),
+      designation: map['designation']?.toString(),
+    );
+  }
+}
 
 class AndonService {
   AndonService._();
@@ -53,7 +85,7 @@ class AndonService {
             .insert(issue.toInsertMap())
             .select()
             .single();
-    return AndonIssue.fromMap(resp as Map<String, dynamic>);
+    return AndonIssue.fromMap(resp);
   }
 
   Future<void> updateStatus({
@@ -112,13 +144,134 @@ class AndonService {
     required String userId,
     String? userName,
     required String text,
+    List<String> mentionedUserIds = const [],
+    String? issueTitle,
   }) async {
-    await _client.from('andon_issue_comments').insert({
-      'issue_id': issueId,
-      'user_id': userId,
-      'user_name': userName,
-      'comment_text': text,
-    });
+    final commentResp =
+        await _client
+            .from('andon_issue_comments')
+            .insert({
+              'issue_id': issueId,
+              'user_id': userId,
+              'user_name': userName,
+              'comment_text': text,
+            })
+            .select('id')
+            .single();
+
+    final commentId = commentResp['id']?.toString();
+    final targetUserIds =
+        mentionedUserIds
+            .where((id) => id.trim().isNotEmpty && id != userId)
+            .map((id) => id.trim())
+            .toSet()
+            .toList();
+
+    if (commentId == null || targetUserIds.isEmpty) return;
+
+    try {
+      await _insertCommentMentions(
+        commentId: commentId,
+        issueId: issueId,
+        mentionedUserIds: targetUserIds,
+      );
+    } catch (_) {
+      // Mention push notifications should still be sent if the optional
+      // mention history table has not been deployed yet.
+    }
+
+    await _sendMentionNotifications(
+      mentionedUserIds: targetUserIds,
+      senderName: userName ?? userId,
+      issueTitle: issueTitle,
+      commentText: text,
+    );
+  }
+
+  Future<List<AndonMentionUser>> fetchMentionableUsers() async {
+    final resp = await _client
+        .from('USERS')
+        .select('org_id, name, dept, designation')
+        .order('name', ascending: true);
+
+    final list = (resp as List).cast<Map<String, dynamic>>();
+    return list
+        .map(AndonMentionUser.fromMap)
+        .where((user) => user.orgId.isNotEmpty)
+        .toList();
+  }
+
+  Future<void> _insertCommentMentions({
+    required String commentId,
+    required String issueId,
+    required List<String> mentionedUserIds,
+  }) async {
+    final users = await _client
+        .from('USERS')
+        .select('org_id, name')
+        .inFilter('org_id', mentionedUserIds);
+
+    final nameById = <String, String?>{};
+    for (final map in users) {
+      final orgId = map['org_id']?.toString();
+      if (orgId != null) {
+        nameById[orgId] = map['name']?.toString();
+      }
+    }
+
+    final rows =
+        mentionedUserIds
+            .map(
+              (id) => {
+                'comment_id': commentId,
+                'issue_id': issueId,
+                'mentioned_user_id': id,
+                'mentioned_user_name': nameById[id],
+              },
+            )
+            .toList();
+
+    await _client
+        .from('andon_comment_mentions')
+        .upsert(rows, onConflict: 'comment_id,mentioned_user_id');
+  }
+
+  Future<void> _sendMentionNotifications({
+    required List<String> mentionedUserIds,
+    required String senderName,
+    required String? issueTitle,
+    required String commentText,
+  }) async {
+    final tokenResp = await _client
+        .from('device_token')
+        .select('user_id, token')
+        .inFilter('user_id', mentionedUserIds);
+
+    final title = 'You were mentioned in Andon';
+    final issuePart =
+        issueTitle == null || issueTitle.trim().isEmpty
+            ? 'an Andon issue'
+            : issueTitle.trim();
+    final shortComment =
+        commentText.length > 80
+            ? '${commentText.substring(0, 77)}...'
+            : commentText;
+    final body = '$senderName mentioned you on $issuePart: $shortComment';
+
+    for (final row in tokenResp) {
+      final token = row['token']?.toString();
+      if (token == null || token.isEmpty) continue;
+
+      try {
+        await PushNotificationService.sendPushNotification(
+          deviceToken: token,
+          title: title,
+          body: body,
+        );
+      } catch (_) {
+        // Keep the comment saved even if one user's push delivery fails.
+      }
+    }
   }
 
   Future<List<AndonIssue>> fetchIssuesFiltered({

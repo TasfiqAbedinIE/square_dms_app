@@ -17,6 +17,7 @@ class NonProductiveDB {
             endTime TEXT,
             machine_num int,
             reason TEXT,
+            remarks TEXT,
             durationMinutes int,
             totalNP int,
             totalLostPcs DOUBLE,
@@ -36,6 +37,7 @@ class NonProductiveDB {
           'salesOrder': 'TEXT',
           'buyer': 'TEXT',
           'style': 'TEXT',
+          'remarks': 'TEXT',
         };
 
         // Inspect the existing schema:
@@ -92,6 +94,7 @@ class NonProductiveDB {
       endTime TEXT,
       machine_num INTEGER,
       reason TEXT,
+      remarks TEXT,
       durationMinutes INTEGER,
       totalNP INTEGER,
       totalLostPcs DOUBLE,

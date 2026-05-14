@@ -290,6 +290,7 @@ class _LostTimeReportPageState extends State<LostTimeReportPage> {
               itemCount: reportData.length,
               itemBuilder: (context, index) {
                 final entry = reportData[index];
+                final remarks = (entry['remarks'] ?? '').toString().trim();
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 6),
                   child: ListTile(
@@ -297,7 +298,8 @@ class _LostTimeReportPageState extends State<LostTimeReportPage> {
                     subtitle: Text(
                       "${entry['date']} | ${entry['startTime']} - ${entry['endTime']}\n"
                       "Duration: ${entry['durationMinutes']} min | "
-                      "NP: ${entry['totalNP']} | Lost Pcs: ${entry['totalLostPcs'].toStringAsFixed(2)}",
+                      "NP: ${entry['totalNP']} | Lost Pcs: ${entry['totalLostPcs'].toStringAsFixed(2)}"
+                      "${remarks.isEmpty ? '' : '\nRemarks: $remarks'}",
                     ),
                   ),
                 );

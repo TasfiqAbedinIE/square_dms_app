@@ -493,6 +493,7 @@ class _NonProductiveTimeMainScreenState
                   'endTime': e['endTime'],
                   'machine_num': e['machine_num'],
                   'reason': e['reason'],
+                  'remarks': e['remarks'],
                   'durationMinutes': e['durationMinutes'],
                   'totalNP': e['totalNP'],
                   'totalLostPcs': e['totalLostPcs'],

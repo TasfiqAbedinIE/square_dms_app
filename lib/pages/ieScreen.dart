@@ -75,6 +75,12 @@ class IEScreen extends StatelessWidget {
               Icons.assessment_outlined,
               '/sewingProductionReport',
             ),
+            _buildCard(
+              context,
+              'Style Record',
+              Icons.manage_search_outlined,
+              '/styleRecord',
+            ),
           ],
         ),
       ),

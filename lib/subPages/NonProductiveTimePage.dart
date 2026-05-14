@@ -76,6 +76,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
     String selectedEndTime = '';
     final machineNoController = TextEditingController();
     final hourlyTargetController = TextEditingController();
+    final remarksController = TextEditingController();
     String? selectedFactor;
     int? timeDifferenceInMinutes;
     String? selectedDepartment;
@@ -175,6 +176,18 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           },
                         );
                       },
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextField(
+                      controller: remarksController,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks',
+                        hintText: 'Why did this non-productive time happen?',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -359,6 +372,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           endTime: selectedEndTime,
                           machine_num: machineCount,
                           reason: selectedFactor!,
+                          remarks: remarksController.text.trim(),
                           durationMinutes: durationMins,
                           totalNP: machineCount * durationMins,
                           totalLostPcs:
@@ -470,6 +484,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
       text: entry.machine_num.toString(),
     );
     final hourlyTargetController = TextEditingController();
+    final remarksController = TextEditingController(text: entry.remarks);
     TimeOfDay? startTime = _parseTime(entry.startTime);
     TimeOfDay? endTime = _parseTime(entry.endTime);
     String selectedStartTime = entry.startTime;
@@ -573,6 +588,18 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           },
                         );
                       },
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextField(
+                      controller: remarksController,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks',
+                        hintText: 'Why did this non-productive time happen?',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -703,6 +730,7 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                           endTime: selectedEndTime,
                           machine_num: machineCount,
                           reason: selectedFactor,
+                          remarks: remarksController.text.trim(),
                           durationMinutes: durationMins,
                           totalNP: machineCount * durationMins,
                           totalLostPcs:
@@ -912,7 +940,11 @@ class _NonProductiveTimeScreenState extends State<NonProductiveTimeScreen> {
                                 "${e.startTime} – ${e.endTime}  (${e.durationMinutes} min)",
                               ),
                               subtitle: Text(
-                                "Machines: ${e.machine_num}   Factor: ${e.reason}",
+                                [
+                                  "Machines: ${e.machine_num}   Factor: ${e.reason}",
+                                  if (e.remarks.trim().isNotEmpty)
+                                    "Remarks: ${e.remarks.trim()}",
+                                ].join('\n'),
                               ),
                             ),
                           ),

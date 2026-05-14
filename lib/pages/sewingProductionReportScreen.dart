@@ -231,20 +231,30 @@ class _SewingProductionReportScreenState
       }
 
       final lineMetrics =
-          lineMetricsByLine.entries.map((entry) {
-              return _LineMetricsRow(
-                lineNumber: entry.key,
-                buyerName: entry.value
-                    .map((e) => e.buyerName)
+          lineMetricsByLine.entries
+              .where(
+                (entry) =>
+                    entry.value.any((row) => row.smv > 0 && row.manpower > 0),
+              )
+              .map((entry) {
+                final visibleStyles = entry.value
+                    .where((e) => e.production > 0 || e.without > 0)
+                    .map((e) => e.styleName.trim())
+                    .where((style) => style.isNotEmpty)
                     .toSet()
-                    .join(', '),
-                styleName: entry.value
-                    .map((e) => e.styleName)
-                    .toSet()
-                    .join(', '),
-                metrics: _KpiMetrics.fromRows(entry.value),
-              );
-            }).toList()
+                    .join(', ');
+
+                return _LineMetricsRow(
+                  lineNumber: entry.key,
+                  buyerName: entry.value
+                      .map((e) => e.buyerName)
+                      .toSet()
+                      .join(', '),
+                  styleName: visibleStyles,
+                  metrics: _KpiMetrics.fromRows(entry.value),
+                );
+              })
+              .toList()
             ..sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
 
       final withoutDueBalances = _buildWithoutDueBalances(blockWideRows);
@@ -633,7 +643,7 @@ class _SewingProductionReportScreenState
                   ),
                   columnSpacing: 24,
                   dataRowMinHeight: 52,
-                  dataRowMaxHeight: 72,
+                  dataRowMaxHeight: 120,
                   columns: const [
                     DataColumn(label: Text('Line')),
                     DataColumn(label: Text('Buyer')),
@@ -662,10 +672,10 @@ class _SewingProductionReportScreenState
                             ),
                             DataCell(
                               SizedBox(
-                                width: 160,
+                                width: 260,
                                 child: Text(
                                   line.styleName.isEmpty ? '-' : line.styleName,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                 ),
                               ),
                             ),
@@ -695,6 +705,19 @@ class _SewingProductionReportScreenState
   }
 
   Widget _buildWithoutDueTableSection() {
+    final totalWithout = _withoutDueBalances.fold<int>(
+      0,
+      (sum, row) => sum + row.totalWithout,
+    );
+    final totalDue = _withoutDueBalances.fold<int>(
+      0,
+      (sum, row) => sum + row.totalDue,
+    );
+    final totalBalance = _withoutDueBalances.fold<int>(
+      0,
+      (sum, row) => sum + row.balance,
+    );
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -708,14 +731,35 @@ class _SewingProductionReportScreenState
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Shows block-wise pending without balance across all available dates. Rows with zero or negative balance are excluded.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.black54),
-            ),
             const SizedBox(height: 12),
+            if (_withoutDueBalances.isNotEmpty) ...[
+              SizedBox(
+                height: 108,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildOutstandingSummaryCard(
+                      'Total Without',
+                      _formatNumber(totalWithout),
+                      const Color(0xFFFFF0E2),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildOutstandingSummaryCard(
+                      'Total Due',
+                      _formatNumber(totalDue),
+                      const Color(0xFFE9F7EF),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildOutstandingSummaryCard(
+                      'Balance',
+                      _formatNumber(totalBalance),
+                      const Color(0xFFFFE8E8),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (_withoutDueBalances.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
@@ -855,6 +899,36 @@ class _SewingProductionReportScreenState
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildOutstandingSummaryCard(String title, String value, Color color) {
+    return Container(
+      width: 170,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+        ],
       ),
     );
   }

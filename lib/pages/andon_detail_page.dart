@@ -398,7 +398,12 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
   late AndonIssue _issue;
   bool _isUpdatingStatus = false;
   bool _isLoadingComments = true;
+  bool _isSendingComment = false;
   List<AndonComment> _comments = [];
+  List<AndonMentionUser> _mentionableUsers = [];
+  List<AndonMentionUser> _mentionSuggestions = [];
+  final Map<String, String> _selectedMentionIdsByLabel = {};
+  int? _activeMentionStart;
   final _commentCtrl = TextEditingController();
 
   String? _creatorName;
@@ -414,10 +419,13 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
     _loadCreatorName();
     _loadCurrentUserName();
     _loadComments();
+    _loadMentionableUsers();
+    _commentCtrl.addListener(_onCommentTextChanged);
   }
 
   @override
   void dispose() {
+    _commentCtrl.removeListener(_onCommentTextChanged);
     _commentCtrl.dispose();
     super.dispose();
   }
@@ -432,8 +440,8 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
           .eq('org_id', _issue.createdById)
           .limit(1);
 
-      if (resp is List && resp.isNotEmpty) {
-        final row = resp.first as Map<String, dynamic>;
+      if (resp.isNotEmpty) {
+        final row = resp.first;
         final name = row['name']?.toString();
         if (name != null && mounted) {
           setState(() {
@@ -456,8 +464,8 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
           .eq('org_id', widget.currentUserId)
           .limit(1);
 
-      if (resp is List && resp.isNotEmpty) {
-        final row = resp.first as Map<String, dynamic>;
+      if (resp.isNotEmpty) {
+        final row = resp.first;
         final name = row['name']?.toString();
         if (name != null && mounted) {
           setState(() {
@@ -484,6 +492,280 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
     }
   }
 
+  Future<void> _loadMentionableUsers() async {
+    try {
+      final users = await AndonService.instance.fetchMentionableUsers();
+      if (!mounted) return;
+      setState(() {
+        _mentionableUsers =
+            users.where((user) => user.orgId != widget.currentUserId).toList();
+      });
+    } catch (e) {
+      debugPrint('Error loading mentionable users: $e');
+    }
+  }
+
+  List<String> _mentionedUserIdsFromText(String text) {
+    final mentionedIds = <String>{};
+    final lowerText = text.toLowerCase();
+
+    for (final entry in _selectedMentionIdsByLabel.entries) {
+      if (lowerText.contains('@${entry.key}'.toLowerCase())) {
+        mentionedIds.add(entry.value);
+      }
+    }
+
+    final orgIdByLower = {
+      for (final user in _mentionableUsers)
+        user.orgId.toLowerCase(): user.orgId,
+    };
+    final orgIdMatches = RegExp(r'@([A-Za-z0-9._-]+)').allMatches(text);
+    for (final match in orgIdMatches) {
+      final id = orgIdByLower[match.group(1)?.toLowerCase()];
+      if (id != null) mentionedIds.add(id);
+    }
+
+    for (final user in _mentionableUsers) {
+      final label = user.displayName.trim();
+      if (label.isEmpty) continue;
+
+      final sameNameUsers =
+          _mentionableUsers
+              .where(
+                (candidate) =>
+                    candidate.displayName.toLowerCase() == label.toLowerCase(),
+              )
+              .length;
+      if (sameNameUsers > 1) continue;
+
+      if (lowerText.contains('@$label'.toLowerCase())) {
+        mentionedIds.add(user.orgId);
+      }
+    }
+
+    return mentionedIds.toList();
+  }
+
+  void _insertMention(
+    AndonMentionUser user, {
+    int? replaceStart,
+    int? replaceEnd,
+  }) {
+    final label =
+        user.displayName.trim().isEmpty ? user.orgId : user.displayName.trim();
+    final token = '@$label ';
+    final text = _commentCtrl.text;
+    if (RegExp(
+      '(^|\\s)${RegExp.escape('@$label')}(\\s|\$)',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      return;
+    }
+
+    final selection = _commentCtrl.selection;
+    final start =
+        replaceStart ?? (selection.isValid ? selection.start : text.length);
+    final end = replaceEnd ?? (selection.isValid ? selection.end : text.length);
+    final prefix = text.substring(0, start);
+    final suffix = text.substring(end);
+    final needsLeadingSpace =
+        prefix.isNotEmpty && !prefix.endsWith(' ') && !prefix.endsWith('\n');
+    final insertText = '${needsLeadingSpace ? ' ' : ''}$token';
+    final nextText = '$prefix$insertText$suffix';
+    final cursor = (prefix + insertText).length;
+
+    _selectedMentionIdsByLabel[label] = user.orgId;
+    _activeMentionStart = null;
+    _mentionSuggestions = [];
+    _commentCtrl.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: cursor),
+    );
+  }
+
+  void _onCommentTextChanged() {
+    final selection = _commentCtrl.selection;
+    if (!selection.isValid || !selection.isCollapsed) {
+      _clearMentionSuggestions();
+      return;
+    }
+
+    final cursor = selection.baseOffset;
+    final textBeforeCursor = _commentCtrl.text.substring(0, cursor);
+    final atIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (atIndex == -1) {
+      _clearMentionSuggestions();
+      return;
+    }
+
+    final query = textBeforeCursor.substring(atIndex + 1);
+    final hasSeparatorBeforeAt =
+        atIndex == 0 ||
+        RegExp(
+          r'\s',
+        ).hasMatch(textBeforeCursor.substring(atIndex - 1, atIndex));
+    final queryEnded =
+        query.endsWith(' ') || query.endsWith('\n') || query.contains('@');
+
+    if (!hasSeparatorBeforeAt || queryEnded) {
+      _clearMentionSuggestions();
+      return;
+    }
+
+    final normalizedQuery = query.trim().toLowerCase();
+    final suggestions =
+        _mentionableUsers
+            .where((user) {
+              final haystack =
+                  '${user.displayName} ${user.orgId} ${user.dept ?? ''} ${user.designation ?? ''}'
+                      .toLowerCase();
+              return normalizedQuery.isEmpty ||
+                  haystack.contains(normalizedQuery);
+            })
+            .take(6)
+            .toList();
+
+    if (!mounted) return;
+    setState(() {
+      _activeMentionStart = atIndex;
+      _mentionSuggestions = suggestions;
+    });
+  }
+
+  void _clearMentionSuggestions() {
+    if (_mentionSuggestions.isEmpty && _activeMentionStart == null) return;
+    if (!mounted) return;
+    setState(() {
+      _activeMentionStart = null;
+      _mentionSuggestions = [];
+    });
+  }
+
+  void _selectInlineMention(AndonMentionUser user) {
+    final selection = _commentCtrl.selection;
+    if (_activeMentionStart == null || !selection.isValid) {
+      _insertMention(user);
+      return;
+    }
+
+    _insertMention(
+      user,
+      replaceStart: _activeMentionStart,
+      replaceEnd: selection.baseOffset,
+    );
+  }
+
+  Future<void> _openMentionPicker() async {
+    if (_mentionableUsers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No users available to mention.')),
+      );
+      return;
+    }
+
+    final picked = await showDialog<AndonMentionUser>(
+      context: context,
+      builder: (context) {
+        var query = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered =
+                _mentionableUsers.where((user) {
+                  final haystack =
+                      '${user.orgId} ${user.name ?? ''} ${user.dept ?? ''} ${user.designation ?? ''}'
+                          .toLowerCase();
+                  return haystack.contains(query.toLowerCase());
+                }).toList();
+
+            return AlertDialog(
+              title: const Text('Mention user'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        prefixIcon: Icon(Icons.search),
+                        hintText: 'Search name, ID or department',
+                      ),
+                      onChanged: (value) => setDialogState(() => query = value),
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final user = filtered[index];
+                          final subtitleParts = [
+                            user.orgId,
+                            if (user.dept != null && user.dept!.isNotEmpty)
+                              user.dept!,
+                            if (user.designation != null &&
+                                user.designation!.isNotEmpty)
+                              user.designation!,
+                          ];
+
+                          return ListTile(
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.person_outline),
+                            ),
+                            title: Text(user.displayName),
+                            subtitle: Text(subtitleParts.join(' - ')),
+                            onTap: () => Navigator.of(context).pop(user),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (picked != null) {
+      _insertMention(picked);
+    }
+  }
+
+  Future<void> _sendComment() async {
+    if (_isSendingComment) return;
+
+    final text = _commentCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() => _isSendingComment = true);
+    try {
+      await AndonService.instance.addComment(
+        issueId: _issue.id,
+        userId: widget.currentUserId,
+        userName: _currentUserName,
+        text: text,
+        mentionedUserIds: _mentionedUserIdsFromText(text),
+        issueTitle: _issue.title,
+      );
+      _commentCtrl.clear();
+      _selectedMentionIdsByLabel.clear();
+      _clearMentionSuggestions();
+      await _loadComments();
+    } catch (e) {
+      debugPrint('Comment send error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add comment: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSendingComment = false);
+    }
+  }
+
   /// Fetch user names for all commenters in a single query
   Future<void> _loadCommentUserNames(List<AndonComment> comments) async {
     try {
@@ -497,14 +779,11 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
           .inFilter('org_id', userIds);
 
       final map = <String, String>{};
-      if (resp is List) {
-        for (final row in resp) {
-          final r = row as Map<String, dynamic>;
-          final orgId = r['org_id']?.toString();
-          final name = r['name']?.toString();
-          if (orgId != null && name != null) {
-            map[orgId] = name;
-          }
+      for (final row in resp) {
+        final orgId = row['org_id']?.toString();
+        final name = row['name']?.toString();
+        if (orgId != null && name != null) {
+          map[orgId] = name;
         }
       }
 
@@ -532,8 +811,6 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
       );
 
       // 2) Auto status comment text
-      final displayName = _currentUserName ?? widget.currentUserId;
-      final timeStr = _timeFormatter.format(DateTime.now());
       String? autoText;
 
       if (newStatus == 'IN_PROGRESS') {
@@ -760,11 +1037,11 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
                                       ? Theme.of(context)
                                           .colorScheme
                                           .secondaryContainer
-                                          .withOpacity(0.7)
+                                          .withValues(alpha: 0.7)
                                       : Theme.of(context)
                                           .colorScheme
-                                          .surfaceVariant
-                                          .withOpacity(0.6);
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.6);
 
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 6),
@@ -786,6 +1063,43 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
                           ),
                 ),
                 const Divider(height: 1),
+                if (_mentionSuggestions.isNotEmpty)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border(
+                        top: BorderSide(color: Theme.of(context).dividerColor),
+                      ),
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: _mentionSuggestions.length,
+                      itemBuilder: (context, index) {
+                        final user = _mentionSuggestions[index];
+                        final subtitleParts = [
+                          user.orgId,
+                          if (user.dept != null && user.dept!.isNotEmpty)
+                            user.dept!,
+                          if (user.designation != null &&
+                              user.designation!.isNotEmpty)
+                            user.designation!,
+                        ];
+
+                        return ListTile(
+                          dense: true,
+                          leading: const CircleAvatar(
+                            radius: 16,
+                            child: Icon(Icons.person_outline, size: 18),
+                          ),
+                          title: Text(user.displayName),
+                          subtitle: Text(subtitleParts.join(' - ')),
+                          onTap: () => _selectInlineMention(user),
+                        );
+                      },
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -793,11 +1107,16 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
                   ),
                   child: Row(
                     children: [
+                      IconButton(
+                        tooltip: 'Mention user',
+                        icon: const Icon(Icons.alternate_email),
+                        onPressed: _openMentionPicker,
+                      ),
                       Expanded(
                         child: TextField(
                           controller: _commentCtrl,
                           decoration: const InputDecoration(
-                            hintText: 'Add a comment...',
+                            hintText: 'Add a comment... Mention with @',
                             border: InputBorder.none,
                           ),
                           minLines: 1,
@@ -805,19 +1124,17 @@ class _AndonDetailPageState extends State<AndonDetailPage> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.send_rounded),
-                        onPressed: () async {
-                          final text = _commentCtrl.text.trim();
-                          if (text.isEmpty) return;
-                          await AndonService.instance.addComment(
-                            issueId: _issue.id,
-                            userId: widget.currentUserId,
-                            userName: _currentUserName,
-                            text: text,
-                          );
-                          _commentCtrl.clear();
-                          _loadComments();
-                        },
+                        icon:
+                            _isSendingComment
+                                ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Icon(Icons.send_rounded),
+                        onPressed: _isSendingComment ? null : _sendComment,
                       ),
                     ],
                   ),

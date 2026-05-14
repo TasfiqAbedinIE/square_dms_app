@@ -6,6 +6,7 @@ class NonProductiveEntry {
   final String endTime;
   final int machine_num;
   final String reason;
+  final String remarks;
   final int durationMinutes;
   final int totalNP;
   final double totalLostPcs;
@@ -24,6 +25,7 @@ class NonProductiveEntry {
     required this.endTime,
     required this.machine_num,
     required this.reason,
+    required this.remarks,
     required this.durationMinutes,
     required this.totalNP,
     required this.totalLostPcs,
@@ -44,6 +46,7 @@ class NonProductiveEntry {
       'endTime': endTime,
       'machine_num': machine_num,
       'reason': reason,
+      'remarks': remarks,
       'durationMinutes': durationMinutes,
       'totalNP': totalNP,
       'totalLostPcs': totalLostPcs,
@@ -65,6 +68,7 @@ class NonProductiveEntry {
       endTime: map['endTime'],
       machine_num: map['machine_num'],
       reason: map['reason'],
+      remarks: map['remarks'] ?? '',
       durationMinutes: map['durationMinutes'],
       totalNP: map['totalNP'],
       totalLostPcs: map['totalLostPcs'],
