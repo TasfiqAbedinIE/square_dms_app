@@ -8,6 +8,7 @@ class SkillMatrixRecord {
   final String item;
   final int layoutTarget;
   final String date;
+  final int processSequence;
   final String operatorID;
   final String processName;
   final String machine;
@@ -27,6 +28,7 @@ class SkillMatrixRecord {
     required this.item,
     required this.layoutTarget,
     required this.date,
+    required this.processSequence,
     required this.operatorID,
     required this.processName,
     required this.machine,
@@ -48,6 +50,7 @@ class SkillMatrixRecord {
       'item': item,
       'layoutTarget': layoutTarget,
       'date': date,
+      'processSequence': processSequence,
       'operatorID': operatorID,
       'processName': processName,
       'machine': machine,
@@ -70,6 +73,7 @@ class SkillMatrixRecord {
       'item': item,
       'layoutTarget': layoutTarget,
       'date': date,
+      'processSequence': processSequence,
       'operatorID': operatorID,
       'processName': processName,
       'machine': machine,
@@ -92,6 +96,7 @@ class SkillMatrixRecord {
       item: map['item'] ?? '',
       layoutTarget: map['layoutTarget'] ?? 0,
       date: map['date'] ?? '',
+      processSequence: map['processSequence'] ?? 0,
       operatorID: map['operatorID'] ?? '',
       processName: map['processName'] ?? '',
       machine: map['machine'] ?? '',

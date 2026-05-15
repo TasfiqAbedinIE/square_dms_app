@@ -21,8 +21,9 @@ class CapacityRecordDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
       onOpen: (db) async {
         // Ensure skillMatrixRecords table exists even if DB already created
         await db.execute('''
@@ -36,6 +37,7 @@ class CapacityRecordDatabase {
             item TEXT,
             layoutTarget INTEGER,
             date TEXT,
+            processSequence INTEGER,
             operatorID TEXT,
             processName TEXT,
             machine TEXT,
@@ -46,6 +48,7 @@ class CapacityRecordDatabase {
             deptid TEXT
           )
         ''');
+        await _ensureSkillMatrixSequenceColumn(db);
       },
     );
   }
@@ -77,6 +80,7 @@ class CapacityRecordDatabase {
         item TEXT,
         layoutTarget INTEGER,
         date TEXT,
+        processSequence INTEGER,
         operatorID TEXT,
         processName TEXT,
         machine TEXT,
@@ -89,6 +93,54 @@ class CapacityRecordDatabase {
     ''');
   }
 
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _ensureSkillMatrixSequenceColumn(db);
+    }
+  }
+
+  Future<void> _ensureSkillMatrixSequenceColumn(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(skillMatrixRecords)');
+    final hasProcessSequence = columns.any(
+      (column) => column['name'] == 'processSequence',
+    );
+
+    if (!hasProcessSequence) {
+      await db.execute(
+        'ALTER TABLE skillMatrixRecords ADD COLUMN processSequence INTEGER',
+      );
+    }
+
+    await _backfillSkillMatrixSequences(db);
+  }
+
+  Future<void> _backfillSkillMatrixSequences(Database db) async {
+    final missingSequenceRecords = await db.query(
+      'skillMatrixRecords',
+      columns: ['id', 'referenceNumber'],
+      where: 'processSequence IS NULL OR processSequence = 0',
+      orderBy: 'referenceNumber ASC, id ASC',
+    );
+
+    final nextSequenceByReference = <String, int>{};
+
+    for (final row in missingSequenceRecords) {
+      final referenceNumber = row['referenceNumber']?.toString() ?? '';
+      final nextSequence =
+          nextSequenceByReference[referenceNumber] ??
+          await _getNextSkillMatrixSequence(db, referenceNumber);
+
+      await db.update(
+        'skillMatrixRecords',
+        {'processSequence': nextSequence},
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+
+      nextSequenceByReference[referenceNumber] = nextSequence + 1;
+    }
+  }
+
   Future<void> insertRecord(CapacityRecord record) async {
     final db = await instance.database;
     await db.insert('capacity_records', record.toMap());
@@ -97,6 +149,27 @@ class CapacityRecordDatabase {
   Future<void> insertSkillMatrixRecord(SkillMatrixRecord record) async {
     final db = await instance.database;
     await db.insert('skillMatrixRecords', record.toMap());
+  }
+
+  Future<int> getNextSkillMatrixSequence(String referenceNumber) async {
+    final db = await instance.database;
+    return _getNextSkillMatrixSequence(db, referenceNumber);
+  }
+
+  Future<int> _getNextSkillMatrixSequence(
+    Database db,
+    String referenceNumber,
+  ) async {
+    final result = await db.rawQuery(
+      '''
+      SELECT COALESCE(MAX(processSequence), 0) + 1 AS nextSequence
+      FROM skillMatrixRecords
+      WHERE referenceNumber = ?
+      ''',
+      [referenceNumber],
+    );
+
+    return (result.first['nextSequence'] as int?) ?? 1;
   }
 
   Future<List<CapacityRecord>> fetchRecords() async {
@@ -113,6 +186,7 @@ class CapacityRecordDatabase {
       'skillMatrixRecords',
       where: 'referenceNumber = ?',
       whereArgs: [referenceNumber],
+      orderBy: 'processSequence ASC, id ASC',
     );
     return result.map((map) => SkillMatrixRecord.fromMap(map)).toList();
   }

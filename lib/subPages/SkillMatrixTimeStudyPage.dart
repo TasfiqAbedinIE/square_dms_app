@@ -181,6 +181,8 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
 
     final prefs = await SharedPreferences.getInstance();
     final isuserID = prefs.getString('userID') ?? '';
+    final processSequence = await CapacityRecordDatabase.instance
+        .getNextSkillMatrixSequence(widget.record.referenceNumber);
 
     final newSkillRecord = {
       'referenceNumber': widget.record.referenceNumber,
@@ -191,6 +193,7 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
       'item': widget.record.item,
       'layoutTarget': widget.record.layoutTarget,
       'date': widget.record.date,
+      'processSequence': processSequence,
       'operatorID': operatorIdTrimmed,
       'processName': processName,
       'machine': selectedMachine,
@@ -204,12 +207,11 @@ class _SkillMatrixTimeStudyPageState extends State<SkillMatrixTimeStudyPage> {
 
     await db.insert('skillMatrixRecords', newSkillRecord);
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Record saved successfully")),
-      );
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Record saved successfully")));
+    Navigator.pop(context);
   }
 
   @override

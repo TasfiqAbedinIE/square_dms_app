@@ -78,19 +78,19 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
       // 1️⃣ Fetch existing records from Supabase for this referenceNumber
       final existingRecords = await client
           .from('skillMatrixRecords')
-          .select('referenceNumber, operatorID')
+          .select('id')
           .eq('referenceNumber', widget.record.referenceNumber);
 
-      final existingOperatorIds =
+      final existingIds =
           existingRecords
-              .map<String>((e) => e['operatorID'] as String)
-              .toSet(); // Collect existing operator IDs
+              .map<String>((e) => e['id'].toString())
+              .toSet(); // Collect existing local record IDs
 
       int uploadedCount = 0;
       int skippedCount = 0;
 
       for (var record in _processRecords) {
-        if (existingOperatorIds.contains(record.operatorID)) {
+        if (existingIds.contains(record.id.toString())) {
           // 2️⃣ Skip if already exists
           skippedCount++;
           continue;
@@ -130,15 +130,15 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
       // Delete from Supabase
       await client.from('skillMatrixRecords').delete().match({
         'referenceNumber': record.referenceNumber,
-        'operatorID': record.operatorID,
+        'id': record.id,
       });
 
       // Delete from local SQLite
       final db = await CapacityRecordDatabase.instance.database;
       await db.delete(
         'skillMatrixRecords',
-        where: 'referenceNumber = ? AND operatorID = ?',
-        whereArgs: [record.referenceNumber, record.operatorID],
+        where: 'referenceNumber = ? AND id = ?',
+        whereArgs: [record.referenceNumber, record.id],
       );
 
       // Reload UI
@@ -217,7 +217,7 @@ class _SkillMatrixOperatorPageState extends State<SkillMatrixOperatorPage> {
                             child: ListTile(
                               title: Text("ID: ${r.operatorID}"),
                               subtitle: Text(
-                                "${r.processName} (${r.machine})\nLap: ${r.lapCount}, Avg: ${r.avgCycle}s, Cap/hr: ${r.capacityPH}",
+                                "Seq: ${r.processSequence} | ${r.processName} (${r.machine})\nLap: ${r.lapCount}, Avg: ${r.avgCycle}s, Cap/hr: ${r.capacityPH}",
                               ),
                               trailing: IconButton(
                                 icon: const Icon(
